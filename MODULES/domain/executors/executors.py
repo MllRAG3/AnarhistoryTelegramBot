@@ -1,6 +1,6 @@
 import time
 
-from telebot.types import InlineKeyboardButton, Message, User
+from telebot.types import InlineKeyboardButton, Message, User, InlineQuery, InlineQueryResultArticle, InputTextMessageContent
 
 from MODULES.constants.reg_variables.BOT import GUARD
 from MODULES.constants.reg_variables.MORPH import MORPH
@@ -10,6 +10,16 @@ from MODULES.domain.pre_send.page_compiler import PageLoader
 from MODULES.domain.executors.graph_loader import Graph
 
 from MODULES.database.models.users import Authors, Stats
+
+
+def no_bug(func):
+    def inner(self, *args, **kwargs):
+        try:
+            func(self, *args, **kwargs)
+        except Exception as e:
+            self.send(PageLoader(11)(str(e)).to_dict)
+
+    return inner
 
 
 def button(text, call_data) -> InlineKeyboardButton:
@@ -23,6 +33,7 @@ class Exec(Call):
         self.db_user = None
         self.load_db_user()
 
+    @no_bug
     def load_db_user(self):
         try:
             self.db_user = Authors.get(tg_id=self.user.id)
@@ -43,25 +54,28 @@ class Exec(Call):
         try:
             GUARD.edit_message_text(chat_id=self.message.chat.id, message_id=self.message.id, **data)
         except Exception as e:
-            error = e
-            self.send(PageLoader(11)().to_dict)
+            self.send(PageLoader(11)(str(e)).to_dict)
             GUARD.edit_message_text(chat_id=self.message.chat.id, message_id=self.message.id+1, **data)
 
+    @no_bug
     def cancel(self, page):
         GUARD.clear_step_handler(self.message)
         page = getattr(self, page)
         page()
 
+    @no_bug
     def start(self):
         if self.db_user.is_regged:
             self.main()
             return
         self.send(PageLoader(1)().to_dict)
 
+    @no_bug
     def add_author_name(self):
         self.edit(PageLoader(2)().to_dict)
         GUARD.register_next_step_handler(self.message, callback=self.check_new_author_name)
 
+    @no_bug
     def check_new_author_name(self, message):
         GUARD.delete_message(self.message.chat.id, message.id)
         if len(message.text) > 16:
@@ -78,6 +92,7 @@ class Exec(Call):
         Authors.save(self.db_user)
         self.edit(PageLoader(5)().to_dict)
 
+    @no_bug
     def main(self):
         self.edit(PageLoader(6)(
             self.db_user.author_name,
@@ -86,10 +101,12 @@ class Exec(Call):
             str(round((self.db_user.stat.respect / (self.db_user.stat.views + (1 if self.db_user.stat.views == 0 else 0)))*100, 2)).ljust(4, "0")
         ).to_dict)
 
+    @no_bug
     def change_author_name(self):
         self.edit(PageLoader(7)().to_dict)
         GUARD.register_next_step_handler(self.message, callback=self.check_changed_author_name)
 
+    @no_bug
     def check_changed_author_name(self, message):
         GUARD.delete_message(self.message.chat.id, message.id)
         if len(message.text) > 16:
@@ -109,15 +126,18 @@ class Exec(Call):
             time.sleep(1)
         self.main()
 
+    @no_bug
     def add_story(self):
         self.edit(PageLoader(12)().to_dict)
         GUARD.register_next_step_handler(self.message, callback=self.add_header)
 
+    @no_bug
     def add_header(self, message):
         GUARD.delete_message(self.message.chat.id, message.id)
         self.edit(PageLoader(13)().to_dict)
         GUARD.register_next_step_handler(self.message, self.check_text, message.text)
 
+    @no_bug
     def check_text(self, message, title):
         GUARD.delete_message(self.message.chat.id, message.id)
         stories = Stories.select()
@@ -137,6 +157,7 @@ class Exec(Call):
 
         self.final_add_story(True, message.text, title)
 
+    @no_bug
     def final_add_story(self, add: bool, text, title):
         new = Stories(
             text=text,
@@ -147,6 +168,7 @@ class Exec(Call):
             new.save()
         self.edit(PageLoader(15)().to_dict)
 
+    @no_bug
     def next_story(self):
         v = list(map(lambda x: x.story.id, Views.select().where(Views.user == self.db_user)[:]))
         try:
@@ -168,6 +190,7 @@ class Exec(Call):
             n.text
         ).to_dict)
 
+    @no_bug
     def hide_story(self, story_id):
         try:
             strr = Stories.get_by_id(int(story_id))
@@ -180,6 +203,7 @@ class Exec(Call):
             print(e)
         self.next_story()
 
+    @no_bug
     def clear_views(self):
         for v in Views.select().where(Views.user == self.db_user):
             try:
@@ -188,6 +212,7 @@ class Exec(Call):
                 err = e
         self.edit(PageLoader(20)().to_dict)
 
+    @no_bug
     def respect(self, amount, author_id):
         try:
             ath = Authors.get_by_id(author_id)
@@ -199,3 +224,39 @@ class Exec(Call):
             print(e)
             error = e
         self.next_story()
+
+    @no_bug
+    def at_story(self, _id):
+        try:
+            strr: Stories = Stories.get_by_id(_id)
+            self.edit(PageLoader(17)(
+                strr.title,
+                strr.author.author_name,
+                strr.text,
+            ).to_dict)
+        except Exception as e:
+            err = e
+
+
+class Search:
+    def __init__(self, inline_query: InlineQuery):
+        self.inline_query = inline_query
+        self.query = inline_query.query
+
+    def load_stories_by_text(self):
+        return list(map(lambda x: InlineQueryResultArticle(x.id, x.title, InputTextMessageContent(f'/at_story {x.id}'), description=x.text[:128]), Stories.select().where((Stories.text.contains(self.query)) & Stories.is_active)[:15]))
+
+    def load_stories_by_head(self):
+        return list(map(lambda x: InlineQueryResultArticle(x.id, x.title, InputTextMessageContent(f'/at_story {x.id}'), description=x.text[:128]), Stories.select().where((Stories.title.contains(self.query)) & Stories.is_active)[:10]))
+
+    def load_stories_by_author(self):
+        return list(map(lambda x: InlineQueryResultArticle(x.id, x.title, InputTextMessageContent(f'/at_story {x.id}'), description=x.text[:128]), Stories.select().where((Stories.author.contains(Authors.select().where(Authors.author_name.contains(self.query))[:2])) & Stories.is_active)[:]))
+
+    def uniq_id(self, answers):
+        for a in zip(answers, range(1, len(answers) + 1)):
+            a[0].id = a[1]
+        return answers
+
+    def search(self):
+        a = self.uniq_id([*self.load_stories_by_author(), *self.load_stories_by_head(), *self.load_stories_by_text()])
+        GUARD.answer_inline_query(self.inline_query.id, a)
