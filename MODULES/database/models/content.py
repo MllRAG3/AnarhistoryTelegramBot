@@ -1,11 +1,11 @@
 from MODULES.database.models.base_model import BaseModelWithoutLogging
-from peewee import CharField, ForeignKeyField, IntegerField
+from peewee import CharField, ForeignKeyField, IntegerField, BooleanField
 
 
 class Samples(BaseModelWithoutLogging):
     text = CharField()
     rows = IntegerField()
-    call_when_generated_method_name = CharField()
+    main_button = BooleanField()
 
 
 class Buttons(BaseModelWithoutLogging):

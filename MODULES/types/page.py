@@ -1,10 +1,10 @@
 class Page:
     def __init__(self, text, markup, send_format: dict | None = None):
-        self.text = text.replace("$NEXT", "\n")
-        self.send_format = send_format
+        self.text = text
+        self.send_format = {} if send_format is None else send_format
         self.markup = markup
 
-    def __lshift__(self, other: dict | None):
+    def __lshift__(self, other: dict):
         self.send_format = other
         return self
 

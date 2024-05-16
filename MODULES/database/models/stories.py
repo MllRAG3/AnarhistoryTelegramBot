@@ -1,23 +1,16 @@
 from MODULES.database.models.base_model import BaseModelWithLogging
-from MODULES.database.models.users import Users
+from MODULES.database.models.users import Authors
 
-from peewee import CharField, BooleanField, ForeignKeyField, IntegerField
+from peewee import CharField, BooleanField, ForeignKeyField
 
 
-class Drafts(BaseModelWithLogging):
+class Stories(BaseModelWithLogging):
     title = CharField(max_length=32)
     text = CharField(max_length=4096)
-    author = ForeignKeyField(Users, backref='drafts')
-
-
-class Published(BaseModelWithLogging):
-    title = CharField(max_length=32)
-    text = CharField(max_length=4096)
-    rating = IntegerField(default=0)
-    protected = BooleanField(default=False)
-    author = ForeignKeyField(Users, backref='published')
+    is_active = BooleanField(default=True)
+    author = ForeignKeyField(Authors, backref='stories')
 
 
 class Views(BaseModelWithLogging):
-    user = ForeignKeyField(Users, backref='stories_seen')
-    story = ForeignKeyField(Published, backref='views')
+    story = ForeignKeyField(Stories)
+    user = ForeignKeyField(Authors, backref='watched')

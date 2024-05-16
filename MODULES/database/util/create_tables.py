@@ -1,26 +1,20 @@
 from MODULES.database.db_var.archive import ARCHIVE
-
-import MODULES.database.models.stories as stories
-import MODULES.database.models.users as users
-import MODULES.database.models.content as content
-import MODULES.database.models.user_history as user_history
+from MODULES.database.models.users import Authors, Stats
+from MODULES.database.models.stories import Stories, Views
+from MODULES.database.models.content import Samples, Buttons
 
 
 def create_world():
     with ARCHIVE:
         ARCHIVE.create_tables([
-            stories.Published,
-            stories.Drafts,
-            stories.Views,
+            Stats,
+            Authors,
 
-            users.AnonymousSettings,
-            users.SearchPreferensies,
-            users.Users,
+            Stories,
+            Views,
 
-            user_history.UserHistory,
-
-            content.Samples,
-            content.Buttons,
+            Samples,
+            Buttons,
         ])
 
     print(['WORLD HAS BEEN CREATED BY GOD -> MIRAGE!'])

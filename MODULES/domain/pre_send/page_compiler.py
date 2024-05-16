@@ -1,4 +1,4 @@
-import MODULES.database.models.content as cntt
+from MODULES.database.models.content import Samples, Buttons
 from MODULES.types.page import Page
 
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
@@ -7,15 +7,9 @@ from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
 class PageLoader:
     def __init__(
             self,
-            content_id: int,
-            back_button: bool = False,
-            main_button: bool = False,
-            help_button: bool = False
+            content_id: int
     ):
-        self.navigation = []
-        self.load_navigation(back_button, main_button, help_button)
-
-        self.content: cntt.Samples | None = None
+        self.content: Samples | None = None
         self.buttons = None
         self.load_data(content_id)
 
@@ -23,18 +17,10 @@ class PageLoader:
 
     def load_data(self, content_id) -> None:
         try:
-            self.content: cntt.Samples = cntt.Samples.get_by_id(content_id)
-            self.buttons: list[cntt.Buttons] = self.content.buttons
+            self.content: Samples = Samples.get_by_id(content_id)
+            self.buttons: list[Buttons] = self.content.buttons
         except AttributeError:
             raise AttributeError("УКАЗАН НЕВЕРНЫЙ ИЛИ НЕСУЩЕСТВУЮЩИЙ content_id!")
-
-    def load_navigation(self, back_button: bool, main_button: bool, help_button: bool) -> None:
-        if back_button:
-            self.navigation.append(InlineKeyboardButton('<-НАЗАД-<<', callback_data='back'))
-        if main_button:
-            self.navigation.append(InlineKeyboardButton('ГЛАВНАЯ', callback_data='main'))
-        if help_button:
-            self.navigation.append(InlineKeyboardButton('ПОМОЩЬ', callback_data='help'))
 
     def compile_buttons(self, markup: InlineKeyboardMarkup) -> InlineKeyboardMarkup:
         for i in range(1, self.content.rows+1):
@@ -47,8 +33,8 @@ class PageLoader:
         return self
 
     def __call__(self, *format_pars) -> Page:
+        self.navigation = [InlineKeyboardButton('ГЛАВНАЯ', callback_data='main')] if self.content.main_button else []
         return Page(
             text=self.content.text.format(*format_pars),
-            markup=self.markup.row(*self.navigation),
-            send_format={'parse_mode': 'HTML'}
+            markup=self.markup.row(*self.navigation)
         )
