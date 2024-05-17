@@ -1,3 +1,4 @@
+import random
 import time
 
 from telebot.types import InlineKeyboardButton, Message, User, InlineQuery, InlineQueryResultArticle, InputTextMessageContent
@@ -13,6 +14,12 @@ from MODULES.database.models.users import Authors, Stats
 
 
 def no_bug(func):
+    """
+    При возникновении ошибки в процессе выполнения метода
+    высылает сообщение с соответствующим текстом
+    :param func: Метод, который передается в декоратор
+    :return:
+    """
     def inner(self, *args, **kwargs):
         try:
             func(self, *args, **kwargs)
@@ -35,6 +42,11 @@ class Exec(Call):
 
     @no_bug
     def load_db_user(self):
+        """
+        Загружает пользователя из базы данных;
+        В случае отсутствия пользователя - создает запись
+        :return:
+        """
         try:
             self.db_user = Authors.get(tg_id=self.user.id)
         except Exception as e:
@@ -48,9 +60,19 @@ class Exec(Call):
             self.db_user = Authors.create(**data)
 
     def send(self, data: dict):
+        """
+        Отправляет новое сообщение
+        :param data: Параметры нового сообщения
+        :return:
+        """
         GUARD.send_message(chat_id=self.message.chat.id, **data)
 
     def edit(self, data: dict):
+        """
+        Изменяет сообщение с ID объекта MESSAGE, переданного при инициализации класса
+        :param data: Параметры нового сообщения
+        :return:
+        """
         try:
             GUARD.edit_message_text(chat_id=self.message.chat.id, message_id=self.message.id, **data)
         except Exception as e:
@@ -59,12 +81,21 @@ class Exec(Call):
 
     @no_bug
     def cancel(self, page):
+        """
+        Отменяет next_step_handler и откатывается до предыдущей страницы
+        :param page: Название метода (страницы), которая будет сгенерирована при вызове этого метода
+        :return:
+        """
         GUARD.clear_step_handler(self.message)
         page = getattr(self, page)
         page()
 
     @no_bug
     def start(self):
+        """
+        Страница бота - старт
+        :return:
+        """
         if self.db_user.is_regged:
             self.main()
             return
@@ -72,11 +103,26 @@ class Exec(Call):
 
     @no_bug
     def add_author_name(self):
+        """
+        Страница бота - добавить псевдоним
+        :return:
+        """
         self.edit(PageLoader(2)().to_dict)
         GUARD.register_next_step_handler(self.message, callback=self.check_new_author_name)
 
     @no_bug
     def check_new_author_name(self, message):
+        """
+        Проверяет новое имя автора по нескольким критериям:
+
+        1. Не длиннее 16 символов
+
+        2. Уникальность
+
+        При всех вердиктах вызывает соответствующие страницы
+        :param message: Объект класса telebot.types.Message - сообщение пользователя с псевдонимом
+        :return:
+        """
         GUARD.delete_message(self.message.chat.id, message.id)
         if len(message.text) > 16:
             self.edit(PageLoader(3)().to_dict)
@@ -94,6 +140,10 @@ class Exec(Call):
 
     @no_bug
     def main(self):
+        """
+        Страница бота - главная
+        :return:
+        """
         self.edit(PageLoader(6)(
             self.db_user.author_name,
             self.db_user.stat.views,
@@ -103,11 +153,26 @@ class Exec(Call):
 
     @no_bug
     def change_author_name(self):
+        """
+        Страница бота - сменит псевдоним
+        :return:
+        """
         self.edit(PageLoader(7)().to_dict)
         GUARD.register_next_step_handler(self.message, callback=self.check_changed_author_name)
 
     @no_bug
     def check_changed_author_name(self, message):
+        """
+        Проверяет введенное имя автора по нескольким критериям:
+
+        1. Не длиннее 16 символов
+
+        2. Уникальность
+
+        При всех вердиктах вызывает соответствующие страницы
+        :param message: Объект класса telebot.types.Message - сообщение пользователя с псевдонимом
+        :return:
+        """
         GUARD.delete_message(self.message.chat.id, message.id)
         if len(message.text) > 16:
             self.edit(PageLoader(8)().to_dict)
@@ -128,17 +193,32 @@ class Exec(Call):
 
     @no_bug
     def add_story(self):
+        """
+        Страница бота - добавить историю
+        :return:
+        """
         self.edit(PageLoader(12)().to_dict)
         GUARD.register_next_step_handler(self.message, callback=self.add_header)
 
     @no_bug
     def add_header(self, message):
+        """
+        Страница бота - добавить заголовок истории
+        :param message: Объект класса telebot.types.Message с ответом пользователя
+        :return:
+        """
         GUARD.delete_message(self.message.chat.id, message.id)
         self.edit(PageLoader(13)().to_dict)
         GUARD.register_next_step_handler(self.message, self.check_text, message.text)
 
     @no_bug
     def check_text(self, message, title):
+        """
+        Проверяет текст истории на уникальность (При совпадении больше чем на 89% - история не добавляется)
+        :param message: Объект класса telebot.types.Message с ответом пользователя
+        :param title: Заголовок истории
+        :return:
+        """
         GUARD.delete_message(self.message.chat.id, message.id)
         stories = Stories.select()
         pld = PageLoader(14)
@@ -159,6 +239,13 @@ class Exec(Call):
 
     @no_bug
     def final_add_story(self, add: bool, text, title):
+        """
+        Заканчивает процесс добавления истории в бд
+        :param add: Сохранить историю (при подозрениях на не уникальность текста False)
+        :param text: Текст истории
+        :param title: Заголовок истории
+        :return:
+        """
         new = Stories(
             text=text,
             title=title,
@@ -170,9 +257,19 @@ class Exec(Call):
 
     @no_bug
     def next_story(self):
+        """
+        Высылает новую историю из бд для просмотра. Критерии select запроса:
+
+        1. История не добавлена в таблицу Views => не просмотрена пользователем
+
+        2. История является активной (не скрытой)
+
+        Автоматически добавляет выбранную историю в таблицу Views
+        :return:
+        """
         v = list(map(lambda x: x.story.id, Views.select().where(Views.user == self.db_user)[:]))
         try:
-            n: Stories = Stories.select().where((~Stories.id.in_(v)) & Stories.is_active)[0]
+            n: Stories = random.choice(Stories.select().where((~Stories.id.in_(v)) & Stories.is_active))
         except (IndexError, AttributeError):
             self.edit(PageLoader(16)().to_dict)
             return
@@ -181,7 +278,7 @@ class Exec(Call):
         Stats.save(n.author.stat)
 
         pld = PageLoader(17)
-        pld += [button('Указать уважение', f'respect 1 {n.author.id}')]
+        pld += [button('Оказать уважение', f'respect 1 {n.author.id}')]
         if self.db_user.is_admin:
             pld += [button('Скрыть историю', f'hide_story {n.id}')]
         self.edit(pld(
@@ -192,6 +289,11 @@ class Exec(Call):
 
     @no_bug
     def hide_story(self, story_id):
+        """
+        Скрывает историю (Делает неактивной)
+        :param story_id: ID истории
+        :return:
+        """
         try:
             strr = Stories.get_by_id(int(story_id))
             strr.is_active = False
@@ -205,6 +307,10 @@ class Exec(Call):
 
     @no_bug
     def clear_views(self):
+        """
+        Очищает таблицу Views для пользователя, отправившего запрос
+        :return:
+        """
         for v in Views.select().where(Views.user == self.db_user):
             try:
                 Views.delete_by_id(v.id)
@@ -214,6 +320,12 @@ class Exec(Call):
 
     @no_bug
     def respect(self, amount, author_id):
+        """
+        Прибавляет уважение к автору с указанным ID
+        :param amount: размер респекта
+        :param author_id: ID автора кто получит респект
+        :return:
+        """
         try:
             ath = Authors.get_by_id(author_id)
             ath.stat.respect += int(amount)
@@ -227,6 +339,11 @@ class Exec(Call):
 
     @no_bug
     def at_story(self, _id):
+        """
+        Высылает историю с указанным ID (Для inline поиска)
+        :param _id: ID истории
+        :return:
+        """
         try:
             strr: Stories = Stories.get_by_id(_id)
             self.edit(PageLoader(17)(
@@ -242,6 +359,7 @@ class Search:
     def __init__(self, inline_query: InlineQuery):
         self.inline_query = inline_query
         self.query = inline_query.query
+        self.s: bool = len(self.query) > 2
 
     def load_stories_by_text(self):
         return list(map(lambda x: InlineQueryResultArticle(x.id, x.title, InputTextMessageContent(f'/at_story {x.id}'), description=x.text[:128]), Stories.select().where((Stories.text.contains(self.query)) & Stories.is_active)[:15]))
@@ -250,13 +368,17 @@ class Search:
         return list(map(lambda x: InlineQueryResultArticle(x.id, x.title, InputTextMessageContent(f'/at_story {x.id}'), description=x.text[:128]), Stories.select().where((Stories.title.contains(self.query)) & Stories.is_active)[:10]))
 
     def load_stories_by_author(self):
-        return list(map(lambda x: InlineQueryResultArticle(x.id, x.title, InputTextMessageContent(f'/at_story {x.id}'), description=x.text[:128]), Stories.select().where((Stories.author.contains(Authors.select().where(Authors.author_name.contains(self.query))[:2])) & Stories.is_active)[:]))
+        return list(map(lambda x: InlineQueryResultArticle(x.id, x.title, InputTextMessageContent(f'/at_story {x.id}'), description=x.text[:128]), Stories.select().where((Stories.author.contains(Authors.select().where(Authors.author_name.contains(self.query)).limit(2))) & Stories.is_active)[:]))
 
-    def uniq_id(self, answers):
+    @staticmethod
+    def uniq_id(answers):
         for a in zip(answers, range(1, len(answers) + 1)):
             a[0].id = a[1]
         return answers
 
     def search(self):
+        if not self.s:
+            return
+
         a = self.uniq_id([*self.load_stories_by_author(), *self.load_stories_by_head(), *self.load_stories_by_text()])
         GUARD.answer_inline_query(self.inline_query.id, a)
