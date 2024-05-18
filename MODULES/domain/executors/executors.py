@@ -356,29 +356,31 @@ class Exec(Call):
 
 
 class Search:
-    def __init__(self, inline_query: InlineQuery):
+    def __init__(self, inline_query: InlineQuery, default_min=1):
         self.inline_query = inline_query
         self.query = inline_query.query
-        self.s: bool = len(self.query) > 2
+        self.s: bool = len(self.query) >= default_min
 
-    def load_stories_by_text(self):
-        return list(map(lambda x: InlineQueryResultArticle(x.id, x.title, InputTextMessageContent(f'/at_story {x.id}'), description=x.text[:128]), Stories.select().where((Stories.text.contains(self.query)) & Stories.is_active)[:15]))
-
-    def load_stories_by_head(self):
-        return list(map(lambda x: InlineQueryResultArticle(x.id, x.title, InputTextMessageContent(f'/at_story {x.id}'), description=x.text[:128]), Stories.select().where((Stories.title.contains(self.query)) & Stories.is_active)[:10]))
-
-    def load_stories_by_author(self):
-        return list(map(lambda x: InlineQueryResultArticle(x.id, x.title, InputTextMessageContent(f'/at_story {x.id}'), description=x.text[:128]), Stories.select().where((Stories.author.contains(Authors.select().where(Authors.author_name.contains(self.query)).limit(2))) & Stories.is_active)[:]))
-
-    @staticmethod
-    def uniq_id(answers):
-        for a in zip(answers, range(1, len(answers) + 1)):
-            a[0].id = a[1]
-        return answers
+    def __call__(self):
+        atths = Authors.select().where(Authors.author_name.contains(self.query)).limit(2)
+        slcct = Stories\
+            .select()\
+            .where((
+                (Stories.title.contains(self.query)) |
+                (Stories.text.contains(self.query)) |
+                (Stories.author.contains(atths))
+            ) & Stories.is_active)[:20]
+        return list(
+            map(lambda x: InlineQueryResultArticle(
+                x.id,
+                x.title,
+                InputTextMessageContent(f'/at_story {x.id}'),
+                description=f"АВТОР: {x.author.author_name}\nТЕКСТ: {x.text[:128] + ('...' if len(x.text) > 128 else '')}"
+            ), slcct)
+        )
 
     def search(self):
         if not self.s:
             return
 
-        a = self.uniq_id([*self.load_stories_by_author(), *self.load_stories_by_head(), *self.load_stories_by_text()])
-        GUARD.answer_inline_query(self.inline_query.id, a)
+        GUARD.answer_inline_query(self.inline_query.id, self())
