@@ -5,6 +5,10 @@ from MODULES.database.models.content import Samples, Buttons
 
 
 def create_world():
+    """
+    Создает все таблицы ы базе данных
+    :return:
+    """
     with ARCHIVE:
         ARCHIVE.create_tables([
             Stats,

@@ -34,7 +34,16 @@ def button(text, call_data) -> InlineKeyboardButton:
 
 
 class Exec(Call):
+    """
+    Основной исполнитель команд бота.
+    """
     def __init__(self, message: Message, user: User | None = None):
+        """
+        :param message: Объект класса telebot.types.Message - информация о сообщении
+        (для получения чата, пользователя и др.)
+        :param user: Объект класса telebot.types.User - дополнительно информация о пользователе
+        (актуально, когда в аргументе message содержится некорректная информация о пользователе)
+        """
         self.message: Message = message
         self.user = message.from_user if user is None else user
         self.db_user = None
@@ -356,12 +365,34 @@ class Exec(Call):
 
 
 class Search:
-    def __init__(self, inline_query: InlineQuery, default_min=1):
+    """
+    Класс для поиска по inline_query запросам от пользователя (telebot.types.InlineQuery)
+    """
+    def __init__(self, inline_query: InlineQuery, default_min=1, select_size=20):
+        """
+        :param inline_query: Объект класса telebot.types.InlineQuery - запрос от пользователя
+        :param default_min: Минимальная длина текста запроса (если запрос меньше - поиск не осуществляется)
+        :param select_size: Кол-во записей, которые будут отправлены ответом на запрос
+        """
         self.inline_query = inline_query
         self.query = inline_query.query
+        self.select_size = select_size
         self.s: bool = len(self.query) >= default_min
 
     def __call__(self):
+        """
+        Обращается к таблице Stories, выбирает записи (self.select_size)**, где:
+        1.
+          Заголовок содержит текст запроса*
+        2.
+          Текст содержит текст запроса*
+        3.
+          Все истории от автора (2)**, псевдоним которого содержит текст запроса*
+
+        * передается при инициализации данного класса, (telebot.types.InlineQuery)
+        ** Кол-во выбираемых записей
+        :return: список с ответами на запрос inline_query
+        """
         atths = Authors.select().where(Authors.author_name.contains(self.query)).limit(2)
         slcct = Stories\
             .select()\
@@ -369,7 +400,8 @@ class Search:
                 (Stories.title.contains(self.query)) |
                 (Stories.text.contains(self.query)) |
                 (Stories.author.contains(atths))
-            ) & Stories.is_active)[:20]
+            ) & Stories.is_active)\
+            .limit(self.select_size)
         return list(
             map(lambda x: InlineQueryResultArticle(
                 x.id,
@@ -380,6 +412,13 @@ class Search:
         )
 
     def search(self):
+        """
+        Осуществляет поиск по переданному при инициализации inline_query (telebot.types.InlineQuery);
+
+        Отвечает на запрос от пользователя при условии, что текст запроса длиннее переданного
+        при инициализации (default_min (по умл. = 1))
+        :return:
+        """
         if not self.s:
             return
 
