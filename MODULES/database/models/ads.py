@@ -7,3 +7,4 @@ class Ads(BaseModelWithoutLogging):
     pic = CharField()
     show_time = IntegerField()
     HTML_format = BooleanField()
+    is_able = BooleanField()

@@ -11,6 +11,7 @@ from MODULES.domain.pre_send.page_compiler import PageLoader
 from MODULES.domain.executors.graph_loader import Graph
 
 from MODULES.database.models.users import Authors, Stats
+from MODULES.database.models.ads import Ads
 
 
 def no_bug(func):
@@ -286,6 +287,12 @@ class Exec(Call):
         n.author.stat.views += 1
         Stats.save(n.author.stat)
 
+        if self.db_user.stat.watched % 20 == 0:
+            self.show_ads()
+
+        self.db_user.stat.watched += 1
+        Stats.save(self.db_user.stat)
+
         pld = PageLoader(17)
         pld += [button('Оказать уважение', f'respect 1 {n.author.id}')]
         if self.db_user.is_admin:
@@ -295,6 +302,14 @@ class Exec(Call):
             n.author.author_name,
             n.text
         ).to_dict)
+
+    def show_ads(self):
+        ads: Ads = random.choice(Ads.select().where(Ads.is_able))
+        pld = PageLoader(21)
+        for sec in range(ads.show_time, -1, -1):
+            self.edit(pld(ads.text, f'{sec} сек.').to_dict)
+        pld += [button('>>--ДАЛЬШЕ->', 'next_story')]
+        self.edit(pld(ads.text, 'Можешь наслаждаться историями дальше!').to_dict)
 
     @no_bug
     def hide_story(self, story_id):
@@ -338,7 +353,9 @@ class Exec(Call):
         try:
             ath = Authors.get_by_id(author_id)
             ath.stat.respect += int(amount)
+            self.db_user.stat.liked += 1
             Stats.save(ath.stat)
+            Stats.save(self.db_user.stat)
             self.edit(PageLoader(18)(ath.author_name).to_dict)
             time.sleep(1)
         except Exception as e:
