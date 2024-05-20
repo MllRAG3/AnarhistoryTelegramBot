@@ -14,6 +14,9 @@ from MODULES.database.models.users import Authors, Stats
 from MODULES.database.models.ads import Ads
 
 
+DISPLAY_FREQUENCY = 20
+
+
 def no_bug(func):
     """
     При возникновении ошибки в процессе выполнения метода
@@ -287,7 +290,7 @@ class Exec(Call):
         n.author.stat.views += 1
         Stats.save(n.author.stat)
 
-        if self.db_user.stat.watched % 20 == 0:
+        if self.db_user.stat.watched % DISPLAY_FREQUENCY == 0:
             self.show_ads()
 
         self.db_user.stat.watched += 1
