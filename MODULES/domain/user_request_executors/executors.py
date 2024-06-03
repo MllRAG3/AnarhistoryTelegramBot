@@ -37,14 +37,7 @@ def no_bug(func):
     return inner
 
 
-def button(text, call_data) -> InlineKeyboardButton:
-    return InlineKeyboardButton(text, callback_data=call_data)
-
-
 class Exec(Call):
-    """
-    Основной исполнитель команд бота.
-    """
     def __init__(self, message: Message, user: User | None = None):
         """
         :param message: Объект класса telebot.types.Message - информация о сообщении
@@ -56,6 +49,12 @@ class Exec(Call):
         self.user = message.from_user if user is None else user
         self.db_user = None
         self.load_db_user()
+
+    def send(self, data, chat_id=None):
+        util.send(self.message.chat.id if chat_id is None else chat_id, **data)
+
+    def edit(self, data):
+        util.edit(self.message.id, self.message.chat.id, **data)
 
     @no_bug
     def load_db_user(self):
@@ -75,21 +74,6 @@ class Exec(Call):
                 'stat': stat
             }
             self.db_user = Authors.create(**data)
-
-    def send(self, type, kwargs_json, reply_markup_json, *additional_buttons):
-        util.multiply_type_send(self.message.chat.id, type, kwargs_json, reply_markup_json, *additional_buttons)
-
-    def edit(self, data: dict):
-        """
-        Изменяет сообщение с ID объекта MESSAGE, переданного при инициализации класса
-        :param data: Параметры нового сообщения
-        :return:
-        """
-        try:
-            GUARD.edit_message_text(chat_id=self.message.chat.id, message_id=self.message.id, **data)
-        except ApiTelegramException:
-            self.send(PageLoader(11)("Не можем изменить сообщение, код: 1").to_dict)
-            GUARD.edit_message_text(chat_id=self.message.chat.id, message_id=self.message.id+1, **data)
 
     @no_bug
     def cancel(self, page):
@@ -290,9 +274,9 @@ class Exec(Call):
         Stats.save(n.author.stat)
 
         pld = PageLoader(17)
-        pld += [button('Оказать уважение', f'respect 1 {n.author.id}')]
+        pld += [util.button('Оказать уважение', f'respect 1 {n.author.id}')]
         if self.db_user.is_admin:
-            pld += [button('Скрыть историю', f'hide_story {n.id}')]
+            pld += [util.button('Скрыть историю', f'hide_story {n.id}')]
         self.edit(pld(
             n.title,
             n.author.author_name,

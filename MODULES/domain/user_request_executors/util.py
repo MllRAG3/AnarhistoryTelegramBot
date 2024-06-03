@@ -6,7 +6,11 @@ from MODULES.constants.reg_variables.BOT import GUARD
 from telebot.types import InlineKeyboardButton
 
 
-def multiply_type_send(chat_id, type, kwargs_json, markup, **additional_buttons: list[InlineKeyboardButton]):
+def button(text, call_data) -> InlineKeyboardButton:
+    return InlineKeyboardButton(text, callback_data=call_data)
+
+
+def send(chat_id, type, kwargs_json, markup, **additional_buttons: list[InlineKeyboardButton]):
     kwargs = json.loads(kwargs_json)
     for row in additional_buttons.values():
         markup.row(row)
@@ -33,14 +37,14 @@ def safe_edit(func):
         try:
             func(mid, chat_id, *args, **kwargs)
         except telebot.apihelper.ApiTelegramException:
-            multiply_type_send(chat_id, 'text', ..., ...,)
+            send(chat_id, 'text', ..., ...,)
             func(mid+1, chat_id, *args, **kwargs)
 
     return inner
 
 
 @safe_edit
-def multiply_type_edit(message_id, chat_id, type, kwargs_json, markup, **additional_buttons: list[InlineKeyboardButton]):
+def edit(message_id, chat_id, type, kwargs_json, markup, **additional_buttons: list[InlineKeyboardButton]):
     kwargs = json.loads(kwargs_json)
     for row in additional_buttons.values():
         markup.row(row)

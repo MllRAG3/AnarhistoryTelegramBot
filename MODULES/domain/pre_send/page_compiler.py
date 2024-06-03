@@ -31,6 +31,7 @@ class PageLoader:
         :return:
         """
         return Page(
+            type=self.message.type,
             data=self.message.message_json.format(*format_pars),
             markup=self.markup
         )
