@@ -3,28 +3,27 @@ import json
 import telebot.apihelper
 
 from MODULES.constants.reg_variables.BOT import GUARD
-from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
+from telebot.types import InlineKeyboardButton
 
 
-def multiply_type_send(chat_id, type, kwargs_json, reply_markup_json, *additional_buttons: list[InlineKeyboardButton]):
+def multiply_type_send(chat_id, type, kwargs_json, markup, **additional_buttons: list[InlineKeyboardButton]):
     kwargs = json.loads(kwargs_json)
-    markup = InlineKeyboardMarkup.de_json(reply_markup_json if reply_markup_json != '{}' else None)
-    for row in additional_buttons:
+    for row in additional_buttons.values():
         markup.row(row)
 
     match type:
         case 'text':
             GUARD.send_message(chat_id=chat_id, **kwargs, reply_markup=markup)
         case 'photo':
-            GUARD.send_photo(chat_id, **kwargs, reply_markup=markup)
+            GUARD.send_photo(chat_id=chat_id, **kwargs, reply_markup=markup)
         case 'audio':
-            GUARD.send_audio(chat_id, **kwargs, reply_markup=markup)
+            GUARD.send_audio(chat_id=chat_id, **kwargs, reply_markup=markup)
         case 'document':
-            GUARD.send_document(chat_id, **kwargs, reply_markup=markup)
+            GUARD.send_document(chat_id=chat_id, **kwargs, reply_markup=markup)
         case 'video':
-            GUARD.send_video(chat_id, **kwargs, reply_markup=markup)
+            GUARD.send_video(chat_id=chat_id, **kwargs, reply_markup=markup)
         case 'animation':
-            GUARD.send_animation(chat_id, **kwargs, reply_markup=markup)
+            GUARD.send_animation(chat_id=chat_id, **kwargs, reply_markup=markup)
         case _:
             raise NotImplementedError(f'Тип сообщений >>{type}<< не может быть отправлен данным методом!')
 
@@ -37,12 +36,13 @@ def safe_edit(func):
             multiply_type_send(chat_id, 'text', ..., ...,)
             func(mid+1, chat_id, *args, **kwargs)
 
+    return inner
+
 
 @safe_edit
-def multiply_type_edit(message_id, chat_id, type, kwargs_json, reply_markup_json, *additional_buttons: list[InlineKeyboardButton]):
+def multiply_type_edit(message_id, chat_id, type, kwargs_json, markup, **additional_buttons: list[InlineKeyboardButton]):
     kwargs = json.loads(kwargs_json)
-    markup = InlineKeyboardMarkup.de_json(reply_markup_json if reply_markup_json != '{}' else None)
-    for row in additional_buttons:
+    for row in additional_buttons.values():
         markup.row(row)
 
     match type:
