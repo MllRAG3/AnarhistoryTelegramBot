@@ -2,6 +2,7 @@ import random
 import time
 
 from telebot.types import InlineKeyboardButton, Message, User, InlineQuery, InlineQueryResultArticle, InputTextMessageContent
+from telebot.apihelper import ApiTelegramException
 
 from MODULES.constants.reg_variables.BOT import GUARD
 from MODULES.constants.reg_variables.MORPH import MORPH
@@ -58,8 +59,7 @@ class Exec(Call):
         """
         try:
             self.db_user = Authors.get(tg_id=self.user.id)
-        except Exception as e:
-            db_not_found_error = e
+        except ApiTelegramException:
             stat = Stats.create()
             data = {
                 'tg_id': self.user.id,
