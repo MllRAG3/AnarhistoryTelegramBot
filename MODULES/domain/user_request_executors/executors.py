@@ -1,7 +1,13 @@
 import random
 import time
 
-from telebot.types import InlineKeyboardButton, Message, User, InlineQuery, InlineQueryResultArticle, InputTextMessageContent
+from telebot.types import \
+    InlineKeyboardButton, \
+    Message, \
+    User, \
+    InlineQuery, \
+    InlineQueryResultArticle, \
+    InputTextMessageContent
 from telebot.apihelper import ApiTelegramException
 
 from MODULES.constants.reg_variables.BOT import GUARD
@@ -9,9 +15,10 @@ from MODULES.constants.reg_variables.MORPH import MORPH
 from MODULES.database.models.stories import Stories, Views
 from MODULES.domain.pre_send.call_data_handler import Call
 from MODULES.domain.pre_send.page_compiler import PageLoader
-from MODULES.domain.executors.graph_loader import Graph
+from MODULES.domain.user_request_executors.graph_loader import Graph
 
 from MODULES.database.models.users import Authors, Stats
+from peewee import DoesNotExist
 
 
 def no_bug(func):
@@ -84,8 +91,8 @@ class Exec(Call):
         """
         try:
             GUARD.edit_message_text(chat_id=self.message.chat.id, message_id=self.message.id, **data)
-        except Exception as e:
-            self.send(PageLoader(11)(str(e)).to_dict)
+        except ApiTelegramException:
+            self.send(PageLoader(11)("Не можем изменить сообщение, код: 1").to_dict)
             GUARD.edit_message_text(chat_id=self.message.chat.id, message_id=self.message.id+1, **data)
 
     @no_bug
@@ -303,15 +310,13 @@ class Exec(Call):
         :param story_id: ID истории
         :return:
         """
-        try:
-            strr = Stories.get_by_id(int(story_id))
-            strr.is_active = False
-            Stories.save(strr)
-            self.edit(PageLoader(19)().to_dict)
-            time.sleep(1)
-            self.send(PageLoader(11)().to_dict)
-        except Exception as e:
-            print(e)
+        story = Stories.get_by_id(int(story_id))
+        story.is_active = False
+        Stories.save(story)
+        self.edit(PageLoader(19)().to_dict)
+        time.sleep(1)
+        self.send(PageLoader(11)().to_dict)
+
         self.next_story()
 
     @no_bug
@@ -323,8 +328,8 @@ class Exec(Call):
         for v in Views.select().where(Views.user == self.db_user):
             try:
                 Views.delete_by_id(v.id)
-            except Exception as e:
-                err = e
+            except ApiTelegramException:
+                pass
         self.edit(PageLoader(20)().to_dict)
 
     @no_bug
@@ -335,15 +340,11 @@ class Exec(Call):
         :param author_id: ID автора кто получит респект
         :return:
         """
-        try:
-            ath = Authors.get_by_id(author_id)
-            ath.stat.respect += int(amount)
-            Stats.save(ath.stat)
-            self.edit(PageLoader(18)(ath.author_name).to_dict)
-            time.sleep(1)
-        except Exception as e:
-            print(e)
-            error = e
+        ath = Authors.get_by_id(author_id)
+        ath.stat.respect += int(amount)
+        Stats.save(ath.stat)
+        self.edit(PageLoader(18)(ath.author_name).to_dict)
+        time.sleep(1)
         self.next_story()
 
     @no_bug
@@ -353,15 +354,12 @@ class Exec(Call):
         :param _id: ID истории
         :return:
         """
-        try:
-            strr: Stories = Stories.get_by_id(_id)
-            self.edit(PageLoader(17)(
-                strr.title,
-                strr.author.author_name,
-                strr.text,
-            ).to_dict)
-        except Exception as e:
-            err = e
+        story: Stories = Stories.get_by_id(_id)
+        self.edit(PageLoader(17)(
+            story.title,
+            story.author.author_name,
+            story.text,
+        ).to_dict)
 
 
 class Search:

@@ -5,6 +5,7 @@ from peewee import CharField, IntegerField, BooleanField, ForeignKeyField
 class Stats(BaseModelWithoutLogging):
     respect = IntegerField(default=0)
     views = IntegerField(default=0)
+    total_boost = IntegerField(default=0)
 
 
 class Authors(BaseModelWithLogging):

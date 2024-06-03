@@ -3,7 +3,7 @@ from telebot.util import extract_arguments
 
 from MODULES.constants.reg_variables.BOT import GUARD
 from MODULES.database.util.create_tables import create_world
-from MODULES.domain.executors.executors import Exec, Search
+from MODULES.domain.user_request_executors.executors import Exec, Search
 
 
 @GUARD.message_handler(commands=["start", "main"])
