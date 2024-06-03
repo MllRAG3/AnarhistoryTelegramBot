@@ -10,6 +10,7 @@ class Stats(BaseModelWithoutLogging):
 
 class Authors(BaseModelWithLogging):
     tg_id = IntegerField()
+    chat_id = IntegerField()
     author_name = CharField(max_length=64, default='Nah, who cares about default values')
     username = CharField(max_length=32)
     is_regged = BooleanField(default=False)

@@ -16,9 +16,9 @@ from MODULES.database.models.stories import Stories, Views
 from MODULES.domain.pre_send.call_data_handler import Call
 from MODULES.domain.pre_send.page_compiler import PageLoader
 from MODULES.domain.user_request_executors.graph_loader import Graph
+import MODULES.domain.user_request_executors.util as util
 
 from MODULES.database.models.users import Authors, Stats
-from peewee import DoesNotExist
 
 
 def no_bug(func):
@@ -70,18 +70,14 @@ class Exec(Call):
             stat = Stats.create()
             data = {
                 'tg_id': self.user.id,
+                'chat_id': self.message.chat.id,
                 'username': self.user.username,
                 'stat': stat
             }
             self.db_user = Authors.create(**data)
 
-    def send(self, data: dict):
-        """
-        Отправляет новое сообщение
-        :param data: Параметры нового сообщения
-        :return:
-        """
-        GUARD.send_message(chat_id=self.message.chat.id, **data)
+    def send(self, type, kwargs_json, reply_markup_json, *additional_buttons):
+        util.multiply_type_send(self.message.chat.id, type, kwargs_json, reply_markup_json, *additional_buttons)
 
     def edit(self, data: dict):
         """
