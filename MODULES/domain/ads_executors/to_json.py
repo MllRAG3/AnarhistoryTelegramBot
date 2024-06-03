@@ -16,25 +16,34 @@ class ToJson:
 
         TYPES (dict[[str, Callable]]):
           Словарь с методом преобразования под каждый тип сообщения
-        jsons (tuple[str, str]):
+        jresults (tuple[str, str]):
           Результаты преобразования
         is_called (bool):
           Был ли вызван объект класса (True если да)
         """
         self.TYPES: dict[str, Callable] = {
+            'text': self.text_to_dict,
+            'animation': self.animation_to_dict,
+            'audio': self.audio_to_dict,
+            'document': self.document_to_dict,
             'photo': self.photo_to_dict,
             'video': self.video_to_dict,
-            'video_note': self.video_note_to_dict,
-            'contact': self.contact_to_dict,
-            'text': self.text_to_dict,
-            'sticker': self.sticker_to_dict,
-            'dice': self.dice_to_dict,
-            'voice': self.voice_to_dict,
-            'document': self.document_to_dict,
-            'audio': self.audio_to_dict,
         }
-        self.jsons: tuple[str, str] = ('null', 'null')
+        self.jresults: tuple[str, str] = ('null', 'null')
         self.is_called: bool = False
+
+    @staticmethod
+    def animation_to_dict(message: Message) -> tuple[dict, dict | None]:
+        """
+        :param message: Информация о сообщении для преобразования
+        :return: Словарь со всеми важными данными для отправки анимации
+        """
+        data = {
+            'animation': message.animation.file_id,
+            'caption': message.caption
+        }
+
+        return data, util.extract_buttons(message)
 
     @staticmethod
     def photo_to_dict(message: Message) -> tuple[dict, dict | None]:
@@ -45,7 +54,6 @@ class ToJson:
         data = {
             'photo': message.photo[0].file_id,
             'caption': message.caption,
-            'parse_mode': 'HTML',
         }
 
         return data, util.extract_buttons(message)
@@ -59,33 +67,6 @@ class ToJson:
         data = {
             'video': message.video.file_id,
             'caption': message.caption,
-            'parse_mode': 'HTML',
-        }
-
-        return data, util.extract_buttons(message)
-
-    @staticmethod
-    def video_note_to_dict(message: Message) -> tuple[dict, dict | None]:
-        """
-        :param message: Информация о сообщении для преобразования
-        :return: Словарь со всеми важными данными для отправки видеосообщения
-        """
-        data = {
-            'data': message.video_note.file_id,
-        }
-
-        return data, util.extract_buttons(message)
-
-    @staticmethod
-    def contact_to_dict(message: Message) -> tuple[dict, dict | None]:
-        """
-        :param message: Информация о сообщении для преобразования
-        :return: Словарь со всеми важными данными для отправки контакта
-        """
-        data = {
-            'phone_number': message.contact.phone_number,
-            'first_name': message.contact.first_name,
-            'last_name': message.contact.last_name,
         }
 
         return data, util.extract_buttons(message)
@@ -98,43 +79,6 @@ class ToJson:
         """
         data = {
             'text': message.text,
-            'parse_mode': 'HTML'
-        }
-
-        return data, util.extract_buttons(message)
-
-    @staticmethod
-    def sticker_to_dict(message: Message) -> tuple[dict, dict | None]:
-        """
-        :param message: Информация о сообщении для преобразования
-        :return: Словарь со всеми важными данными для отправки стикера
-        """
-        data = {
-            'sticker': message.sticker.file_id
-        }
-
-        return data, util.extract_buttons(message)
-
-    @staticmethod
-    def dice_to_dict(message: Message) -> tuple[dict, dict | None]:
-        """
-        :param message: Информация о сообщении для преобразования
-        :return: Словарь со всеми важными данными для отправки случайного эмодзи
-        """
-        data = {
-            'emoji': message.dice.emoji
-        }
-
-        return data, util.extract_buttons(message)
-
-    @staticmethod
-    def voice_to_dict(message: Message) -> tuple[dict, dict | None]:
-        """
-        :param message: Информация о сообщении для преобразования
-        :return: Словарь со всеми важными данными для отправки голососвого сообщения
-        """
-        data = {
-            'voice': message.voice.file_id
         }
 
         return data, util.extract_buttons(message)
@@ -148,7 +92,6 @@ class ToJson:
         data = {
             'document': message.document.file_id,
             'caption': message.caption,
-            'parse_mode': 'HTML'
         }
 
         return data, util.extract_buttons(message)
@@ -162,7 +105,6 @@ class ToJson:
         data = {
             'audio': message.audio.file_id,
             'caption': message.caption,
-            'parse_mode': 'HTML'
         }
 
         return data, util.extract_buttons(message)
@@ -170,19 +112,21 @@ class ToJson:
     def __call__(self, message: Message) -> None:
         """
         :param message: Информация о сообщении для преобразования
-        присваивает аттрибуту self.jsons результат преобразований
+        присваивает аттрибуту self.jresults результат преобразований
         :return:
         """
-        to_send, buttons = self.TYPES[message.content_type](message)
-        self.jsons = json.dumps(to_send, ensure_ascii=False), json.dumps(buttons, ensure_ascii=False)
+        try:
+            to_send, buttons = self.TYPES[message.content_type](message)
+        except (TypeError, KeyError):
+            raise Exception(f'Данный тип сообщения не поддерживается! ({message.content_type})')
+        self.jresults = json.dumps(to_send, ensure_ascii=False), json.dumps(buttons, ensure_ascii=False)
         self.is_called = True
 
     def __str__(self) -> str:
         """
-        :return: Текст для сообщения с результатом (Необходимо отформатировать по HTML!)
+        :return: Текст для сообщения с результатом
         """
         if not self.is_called:
             raise NotImplementedError('Перед преобразованием в строку необходимо вызвать объект класса!')
 
-        return '<b>json текста, медиа и параметров форматирования:</b>\n<code>{}</code>\n\n<b>json ' \
-               'кнопок:</b>\n<code>{}</code>'.format(*self.jsons)
+        return '<b>text:</b>\n<code>{}</code>\n\n<b>buttons:</b>\n<code>{}</code>'.format(*self.jresults)
