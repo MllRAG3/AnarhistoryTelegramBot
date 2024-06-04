@@ -1,15 +1,14 @@
 import time
 import schedule
 
-from telebot.types import Message, InlineKeyboardMarkup
+from telebot.types import InlineKeyboardMarkup
 from MODULES.database.models.mailing import Mailing
 from MODULES.database.models.users import Authors
 import MODULES.domain.user_request_executors.util as ure_util
 
 
 class MailingSender:
-    def __init__(self, message: Message):
-        self.message: Message = message
+    def __init__(self):
         self.work: bool = True
 
     def schedule_send(self):
@@ -37,3 +36,4 @@ class MailingSender:
         self.schedule_send()
         while self.work:
             schedule.run_pending()
+            time.sleep(60)

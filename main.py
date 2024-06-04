@@ -4,6 +4,7 @@ from telebot.util import extract_arguments
 from MODULES.constants.reg_variables.BOT import GUARD
 from MODULES.database.util.create_tables import create_world
 from MODULES.domain.user_request_executors.executors import Exec, Search
+from MODULES.domain.ads_executors.mailing_sender import MailingSender
 
 
 @GUARD.message_handler(commands=["start", "main"])
@@ -25,6 +26,11 @@ def for_ads(message: Message):
 @GUARD.message_handler(commands=['no_command'])
 def rickroll(message: Message):
     Exec(message).rickroll()
+
+
+@GUARD.message_handler(commands=['start_mailing_28374823974'])
+def start_mailing(message: Message):
+    MailingSender()()
 
 
 @GUARD.callback_query_handler(func=lambda call: True)
