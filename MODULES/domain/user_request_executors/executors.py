@@ -1,7 +1,12 @@
 import random
 import time
 
-from telebot.types import InlineKeyboardButton, Message, User, InlineQuery, InlineQueryResultArticle, InputTextMessageContent
+from telebot.types import \
+    Message, \
+    User, \
+    InlineQuery, \
+    InlineQueryResultArticle, \
+    InputTextMessageContent
 from telebot.apihelper import ApiTelegramException
 
 from MODULES.constants.reg_variables.BOT import GUARD
@@ -9,9 +14,11 @@ from MODULES.constants.reg_variables.MORPH import MORPH
 from MODULES.database.models.stories import Stories, Views
 from MODULES.domain.pre_send.call_data_handler import Call
 from MODULES.domain.pre_send.page_compiler import PageLoader
-from MODULES.domain.executors.graph_loader import Graph
+from MODULES.domain.user_request_executors.graph_loader import Graph
+import MODULES.domain.user_request_executors.util as util
 
 from MODULES.database.models.users import Authors, Stats
+from peewee import DoesNotExist
 
 
 def no_bug(func):
@@ -30,14 +37,7 @@ def no_bug(func):
     return inner
 
 
-def button(text, call_data) -> InlineKeyboardButton:
-    return InlineKeyboardButton(text, callback_data=call_data)
-
-
 class Exec(Call):
-    """
-    Основной исполнитель команд бота.
-    """
     def __init__(self, message: Message, user: User | None = None):
         """
         :param message: Объект класса telebot.types.Message - информация о сообщении
@@ -50,6 +50,12 @@ class Exec(Call):
         self.db_user = None
         self.load_db_user()
 
+    def send(self, data, chat_id=None):
+        util.send(self.message.chat.id if chat_id is None else chat_id, **data)
+
+    def edit(self, data):
+        util.edit(self.message.id, self.message.chat.id, **data)
+
     @no_bug
     def load_db_user(self):
         """
@@ -59,34 +65,15 @@ class Exec(Call):
         """
         try:
             self.db_user = Authors.get(tg_id=self.user.id)
-        except ApiTelegramException:
+        except DoesNotExist:
             stat = Stats.create()
             data = {
                 'tg_id': self.user.id,
+                'chat_id': self.message.chat.id,
                 'username': self.user.username,
                 'stat': stat
             }
             self.db_user = Authors.create(**data)
-
-    def send(self, data: dict):
-        """
-        Отправляет новое сообщение
-        :param data: Параметры нового сообщения
-        :return:
-        """
-        GUARD.send_message(chat_id=self.message.chat.id, **data)
-
-    def edit(self, data: dict):
-        """
-        Изменяет сообщение с ID объекта MESSAGE, переданного при инициализации класса
-        :param data: Параметры нового сообщения
-        :return:
-        """
-        try:
-            GUARD.edit_message_text(chat_id=self.message.chat.id, message_id=self.message.id, **data)
-        except Exception as e:
-            self.send(PageLoader(11)(str(e)).to_dict)
-            GUARD.edit_message_text(chat_id=self.message.chat.id, message_id=self.message.id+1, **data)
 
     @no_bug
     def cancel(self, page):
@@ -287,9 +274,9 @@ class Exec(Call):
         Stats.save(n.author.stat)
 
         pld = PageLoader(17)
-        pld += [button('Оказать уважение', f'respect 1 {n.author.id}')]
+        pld += [util.button('Оказать уважение', f'respect 1 {n.author.id}')]
         if self.db_user.is_admin:
-            pld += [button('Скрыть историю', f'hide_story {n.id}')]
+            pld += [util.button('Скрыть историю', f'hide_story {n.id}')]
         self.edit(pld(
             n.title,
             n.author.author_name,
@@ -303,15 +290,11 @@ class Exec(Call):
         :param story_id: ID истории
         :return:
         """
-        try:
-            strr = Stories.get_by_id(int(story_id))
-            strr.is_active = False
-            Stories.save(strr)
-            self.edit(PageLoader(19)().to_dict)
-            time.sleep(1)
-            self.send(PageLoader(11)().to_dict)
-        except Exception as e:
-            print(e)
+        story = Stories.get_by_id(int(story_id))
+        story.is_active = False
+        Stories.save(story)
+        self.edit(PageLoader(19)().to_dict)
+        time.sleep(1)
         self.next_story()
 
     @no_bug
@@ -323,9 +306,9 @@ class Exec(Call):
         for v in Views.select().where(Views.user == self.db_user):
             try:
                 Views.delete_by_id(v.id)
-            except Exception as e:
-                err = e
-        self.edit(PageLoader(20)().to_dict)
+            except ApiTelegramException:
+                pass
+        self.edit(PageLoader(16)().to_dict)
 
     @no_bug
     def respect(self, amount, author_id):
@@ -335,15 +318,11 @@ class Exec(Call):
         :param author_id: ID автора кто получит респект
         :return:
         """
-        try:
-            ath = Authors.get_by_id(author_id)
-            ath.stat.respect += int(amount)
-            Stats.save(ath.stat)
-            self.edit(PageLoader(18)(ath.author_name).to_dict)
-            time.sleep(1)
-        except Exception as e:
-            print(e)
-            error = e
+        ath = Authors.get_by_id(author_id)
+        ath.stat.respect += int(amount)
+        Stats.save(ath.stat)
+        self.edit(PageLoader(18)(ath.author_name).to_dict)
+        time.sleep(1)
         self.next_story()
 
     @no_bug
@@ -353,15 +332,12 @@ class Exec(Call):
         :param _id: ID истории
         :return:
         """
-        try:
-            strr: Stories = Stories.get_by_id(_id)
-            self.edit(PageLoader(17)(
-                strr.title,
-                strr.author.author_name,
-                strr.text,
-            ).to_dict)
-        except Exception as e:
-            err = e
+        story: Stories = Stories.get_by_id(_id)
+        self.edit(PageLoader(17)(
+            story.title,
+            story.author.author_name,
+            story.text,
+        ).to_dict)
 
 
 class Search:
