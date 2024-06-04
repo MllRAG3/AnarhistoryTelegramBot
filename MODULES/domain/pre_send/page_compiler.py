@@ -15,7 +15,7 @@ class PageLoader:
         :param content_id: ID записи в таблице Samples
         """
         self.message: Samples = Samples.get_by_id(content_id)
-        self.markup: InlineKeyboardMarkup = InlineKeyboardMarkup.de_json(self.message.markup_json)
+        self.markup: InlineKeyboardMarkup = InlineKeyboardMarkup.de_json(self.message.markup_json if self.message.markup_json != '{}' else None)
 
     def __iadd__(self, row: list[InlineKeyboardButton]):
         """
@@ -34,9 +34,9 @@ class PageLoader:
         """
         a = json.loads(self.message.message_json)
         try:
-            a['text'].format(*format_pars)
+            a['text'] = a['text'].format(*format_pars)
         except KeyError:
-            a['caption'].format(*format_pars)
+            a['caption'] = a['caption'].format(*format_pars)
         return Page(
             type=self.message.type,
             data=json.dumps(a, ensure_ascii=False),

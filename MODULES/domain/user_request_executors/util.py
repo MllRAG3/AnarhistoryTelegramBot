@@ -5,6 +5,8 @@ import telebot.apihelper
 from MODULES.constants.reg_variables.BOT import GUARD
 from telebot.types import InlineKeyboardButton
 
+from MODULES.domain.pre_send.page_compiler import PageLoader
+
 
 def button(text, call_data) -> InlineKeyboardButton:
     return InlineKeyboardButton(text, callback_data=call_data)
@@ -36,8 +38,8 @@ def safe_edit(func):
     def inner(mid, chat_id, *args, **kwargs):
         try:
             func(mid, chat_id, *args, **kwargs)
-        except telebot.apihelper.ApiTelegramException:
-            send(chat_id, 'text', ..., ...,)
+        except telebot.apihelper.ApiTelegramException as e:
+            send(chat_id, **PageLoader(11)(str(e)).to_dict)
             func(mid+1, chat_id, *args, **kwargs)
 
     return inner

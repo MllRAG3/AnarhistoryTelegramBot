@@ -2,7 +2,6 @@ import random
 import time
 
 from telebot.types import \
-    InlineKeyboardButton, \
     Message, \
     User, \
     InlineQuery, \
@@ -19,6 +18,7 @@ from MODULES.domain.user_request_executors.graph_loader import Graph
 import MODULES.domain.user_request_executors.util as util
 
 from MODULES.database.models.users import Authors, Stats
+from peewee import DoesNotExist
 
 
 def no_bug(func):
@@ -65,7 +65,7 @@ class Exec(Call):
         """
         try:
             self.db_user = Authors.get(tg_id=self.user.id)
-        except ApiTelegramException:
+        except DoesNotExist:
             stat = Stats.create()
             data = {
                 'tg_id': self.user.id,
@@ -295,8 +295,6 @@ class Exec(Call):
         Stories.save(story)
         self.edit(PageLoader(19)().to_dict)
         time.sleep(1)
-        self.send(PageLoader(11)().to_dict)
-
         self.next_story()
 
     @no_bug
@@ -310,7 +308,7 @@ class Exec(Call):
                 Views.delete_by_id(v.id)
             except ApiTelegramException:
                 pass
-        self.edit(PageLoader(20)().to_dict)
+        self.edit(PageLoader(16)().to_dict)
 
     @no_bug
     def respect(self, amount, author_id):
