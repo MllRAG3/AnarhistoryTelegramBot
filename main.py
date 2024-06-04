@@ -3,14 +3,15 @@ from telebot.util import extract_arguments
 
 from MODULES.constants.reg_variables.BOT import GUARD
 from MODULES.database.util.create_tables import create_world
-from MODULES.domain.ads_executors.to_json import ToJson
 from MODULES.domain.user_request_executors.executors import Exec, Search
-from MODULES.database.models.users import Authors
+from MODULES.domain.ads_executors.mailing_sender import MailingSender
 
 
 @GUARD.message_handler(commands=["start", "main"])
 def start(message: Message):
-    Exec(message).start()
+    ex = Exec(message)
+    ex.start()
+    ex.check_boosts()
 
 
 @GUARD.message_handler(commands=['at_story'])
@@ -21,23 +22,24 @@ def at_story(message):
 
 @GUARD.message_handler(commands=['dismember'])
 def for_ads(message: Message):
-    user: Authors = Authors.get_or_none(tg_id=message.from_user.id)
-    if user is None:
-        return
-    if not user.is_admin:
-        return
-    GUARD.send_message(message.chat.id, 'Перешли сюда рекламный пост и я расчленю его для бд:')
-    tj = ToJson()
-    GUARD.register_next_step_handler(message, callback=tj)
-    while not tj.is_called:
-        pass
-    GUARD.send_message(message.chat.id, str(tj), parse_mode='HTML')
+    Exec(message).dismember_message()
 
+
+@GUARD.message_handler(commands=['no_command'])
+def rickroll(message: Message):
+    Exec(message).rickroll()
+
+
+@GUARD.message_handler(commands=['start_mailing_28374823974'])
+def start_mailing(message: Message):
+    MailingSender()()
 
 
 @GUARD.callback_query_handler(func=lambda call: True)
 def call_data_handler(call: CallbackQuery):
-    Exec(call.message, user=call.from_user)(call)
+    ex = Exec(call.message, user=call.from_user)
+    ex(call)
+    ex.check_boosts()
 
 
 @GUARD.inline_handler(func=lambda query: True)
