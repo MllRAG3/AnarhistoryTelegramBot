@@ -97,6 +97,9 @@ class Exec(Call):
             pass
         self.send(PageLoader(18)(*tj.jresults).to_dict)
 
+    def rickroll(self):
+        self.send(PageLoader(19)().to_dict)
+
     @no_bug
     def start(self):
         """

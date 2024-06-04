@@ -3,9 +3,7 @@ from telebot.util import extract_arguments
 
 from MODULES.constants.reg_variables.BOT import GUARD
 from MODULES.database.util.create_tables import create_world
-from MODULES.domain.ads_executors.to_json import ToJson
 from MODULES.domain.user_request_executors.executors import Exec, Search
-from MODULES.database.models.users import Authors
 
 
 @GUARD.message_handler(commands=["start", "main"])
@@ -22,6 +20,11 @@ def at_story(message):
 @GUARD.message_handler(commands=['dismember'])
 def for_ads(message: Message):
     Exec(message).dismember_message()
+
+
+@GUARD.message_handler(commands=['no_command'])
+def rickroll(message: Message):
+    Exec(message).rickroll()
 
 
 @GUARD.callback_query_handler(func=lambda call: True)
