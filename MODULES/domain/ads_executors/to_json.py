@@ -121,12 +121,3 @@ class ToJson:
             raise Exception(f'Данный тип сообщения не поддерживается! ({message.content_type})')
         self.jresults = message.content_type, json.dumps(to_send, ensure_ascii=False), json.dumps(buttons, ensure_ascii=False)
         self.is_called = True
-
-    def __str__(self) -> str:
-        """
-        :return: Текст для сообщения с результатом
-        """
-        if not self.is_called:
-            raise NotImplementedError('Перед преобразованием в строку необходимо вызвать объект класса!')
-
-        return '<b>type:</b>\n<code>{}</code>\n\n<b>data:</b>\n<code>{}</code>\n\n<b>buttons:</b>\n<code>{}</code>'.format(*self.jresults)

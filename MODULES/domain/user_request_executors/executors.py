@@ -12,6 +12,7 @@ from telebot.apihelper import ApiTelegramException
 from MODULES.constants.reg_variables.BOT import GUARD
 from MODULES.constants.reg_variables.MORPH import MORPH
 from MODULES.database.models.stories import Stories, Views
+from MODULES.domain.ads_executors.to_json import ToJson
 from MODULES.domain.pre_send.call_data_handler import Call
 from MODULES.domain.pre_send.page_compiler import PageLoader
 from MODULES.domain.user_request_executors.graph_loader import Graph
@@ -85,6 +86,16 @@ class Exec(Call):
         GUARD.clear_step_handler(self.message)
         page = getattr(self, page)
         page()
+
+    def dismember_message(self):
+        if not self.db_user.is_admin:
+            return
+        self.send(PageLoader(17)().to_dict)
+        tj = ToJson()
+        GUARD.register_next_step_handler(self.message, callback=tj)
+        while not tj.is_called:
+            pass
+        self.send(PageLoader(18)(*tj.jresults).to_dict)
 
     @no_bug
     def start(self):
