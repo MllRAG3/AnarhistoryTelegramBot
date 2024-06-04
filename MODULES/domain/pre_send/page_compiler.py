@@ -1,4 +1,6 @@
-from MODULES.database.models.content import Samples, Buttons
+import json
+
+from MODULES.database.models.content import Samples
 from MODULES.types.page import Page
 
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
@@ -30,8 +32,13 @@ class PageLoader:
         :param format_pars: Параметры форматирования текст сообщения
         :return:
         """
+        a = json.loads(self.message.message_json)
+        try:
+            a['text'].format(*format_pars)
+        except KeyError:
+            a['caption'].format(*format_pars)
         return Page(
             type=self.message.type,
-            data=self.message.message_json.format(*format_pars),
+            data=json.dumps(a, ensure_ascii=False),
             markup=self.markup
         )

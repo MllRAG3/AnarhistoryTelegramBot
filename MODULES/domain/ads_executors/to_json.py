@@ -29,7 +29,7 @@ class ToJson:
             'photo': self.photo_to_dict,
             'video': self.video_to_dict,
         }
-        self.jresults: tuple[str, str] = ('null', 'null')
+        self.jresults: tuple[str, str, str] = ('text', 'null', 'null')
         self.is_called: bool = False
 
     @staticmethod
@@ -119,7 +119,7 @@ class ToJson:
             to_send, buttons = self.TYPES[message.content_type](message)
         except (TypeError, KeyError):
             raise Exception(f'Данный тип сообщения не поддерживается! ({message.content_type})')
-        self.jresults = json.dumps(to_send, ensure_ascii=False), json.dumps(buttons, ensure_ascii=False)
+        self.jresults = message.content_type, json.dumps(to_send, ensure_ascii=False), json.dumps(buttons, ensure_ascii=False)
         self.is_called = True
 
     def __str__(self) -> str:
@@ -129,4 +129,4 @@ class ToJson:
         if not self.is_called:
             raise NotImplementedError('Перед преобразованием в строку необходимо вызвать объект класса!')
 
-        return '<b>text:</b>\n<code>{}</code>\n\n<b>buttons:</b>\n<code>{}</code>'.format(*self.jresults)
+        return '<b>type:</b>\n<code>{}</code>\n\n<b>data:</b>\n<code>{}</code>\n\n<b>buttons:</b>\n<code>{}</code>'.format(*self.jresults)
