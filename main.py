@@ -9,7 +9,9 @@ from MODULES.domain.ads_executors.mailing_sender import MailingSender
 
 @GUARD.message_handler(commands=["start", "main"])
 def start(message: Message):
-    Exec(message).start()
+    ex = Exec(message)
+    ex.start()
+    ex.check_boosts()
 
 
 @GUARD.message_handler(commands=['at_story'])
@@ -35,7 +37,9 @@ def start_mailing(message: Message):
 
 @GUARD.callback_query_handler(func=lambda call: True)
 def call_data_handler(call: CallbackQuery):
-    Exec(call.message, user=call.from_user)(call)
+    ex = Exec(call.message, user=call.from_user)
+    ex(call)
+    ex.check_boosts()
 
 
 @GUARD.inline_handler(func=lambda query: True)

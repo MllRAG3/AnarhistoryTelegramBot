@@ -1,6 +1,6 @@
-from telebot.types import ChatMember, ChatMemberMember
+from telebot.types import InlineKeyboardButton, ChatMemberLeft
 from MODULES.constants.reg_variables.BOT import GUARD
-from MODULES.database.models.users import Authors
+from MODULES.database.models.users import Authors, Stats
 from MODULES.database.models.boost_channels import BoostChannels
 
 
@@ -9,21 +9,25 @@ class Boost:
         self.db_user = user
 
     @property
-    def amount(self) -> list[int]:
-        data = map(lambda x: x.amount if isinstance(
+    def amount(self) -> int:
+        data = map(lambda x: x.amount if not isinstance(
             GUARD.get_chat_member(chat_id=x.tid, user_id=self.db_user.tg_id),
-            ChatMemberMember
+            ChatMemberLeft
         ) else 0, BoostChannels.select())
-        data = list(filter(lambda x: x != 0, data))
 
         return sum(data)
 
     @property
-    def not_sub_channel_links(self) -> list[BoostChannels]:
-        data = list(filter(lambda x: not isinstance(GUARD.get_chat_member(chat_id=x.tid, user_id=self.db_user.tg_id), ChatMemberMember), BoostChannels.select()))
+    def chn_buttons(self) -> list[InlineKeyboardButton]:
+        data = list(filter(lambda x: isinstance(GUARD.get_chat_member(chat_id=x.tid, user_id=self.db_user.tg_id), ChatMemberLeft), BoostChannels.select()))
+        data = list(map(lambda x: InlineKeyboardButton(f'Канал {x.id} (+{x.amount} рейтинга)', url=x.link), data))
 
         return data
 
+    def rollback(self):
+        self.db_user.stat.total_boost = self.amount
+        Stats.save(self.db_user.stat)
+
     @property
-    def boost_changed(self) -> bool:
-        return self.db_user.stat.total_boost != self.amount
+    def boost_changed(self) -> int:
+        return self.db_user.stat.total_boost - self.amount

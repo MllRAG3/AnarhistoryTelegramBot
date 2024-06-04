@@ -16,6 +16,8 @@ class PageLoader:
         """
         self.message: Samples = Samples.get_by_id(content_id)
         self.markup: InlineKeyboardMarkup = InlineKeyboardMarkup.de_json(self.message.markup_json if self.message.markup_json != '{}' else None)
+        if self.markup is None:
+            self.markup = InlineKeyboardMarkup()
 
     def __iadd__(self, row: list[InlineKeyboardButton]):
         """

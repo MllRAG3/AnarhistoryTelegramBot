@@ -11,14 +11,17 @@ from telebot.apihelper import ApiTelegramException
 
 from MODULES.constants.reg_variables.BOT import GUARD
 from MODULES.constants.reg_variables.MORPH import MORPH
-from MODULES.database.models.stories import Stories, Views
+
 from MODULES.domain.ads_executors.to_json import ToJson
 from MODULES.domain.pre_send.call_data_handler import Call
 from MODULES.domain.pre_send.page_compiler import PageLoader
 from MODULES.domain.user_request_executors.graph_loader import Graph
+from MODULES.domain.ads_executors.boost_counter import Boost
 import MODULES.domain.user_request_executors.util as util
 
+
 from MODULES.database.models.users import Authors, Stats
+from MODULES.database.models.stories import Stories, Views
 from peewee import DoesNotExist
 
 
@@ -48,8 +51,41 @@ class Exec(Call):
         """
         self.message: Message = message
         self.user = message.from_user if user is None else user
-        self.db_user = None
+        self.db_user: Authors | None = None
+
         self.load_db_user()
+
+    def check_boosts(self):
+        boost = Boost(self.db_user)
+        if boost.boost_changed == 0:
+            return
+        elif boost.boost_changed < 0:
+            self.boost_up(boost)
+        elif boost.boost_changed > 0:
+            self.boost_down(boost)
+
+        boost.rollback()
+
+    @no_bug
+    def boost_up(self, bst):
+        if not bst.chn_buttons:
+            self.send(PageLoader(20)(-bst.boost_changed, -bst.boost_changed, ".").to_dict)
+            return
+
+        pld = PageLoader(20)
+        for btn in bst.chn_buttons:
+            pld += [btn]
+        self.send(pld(-bst.boost_changed, -bst.boost_changed, ", но ты все еще можешь повысить его подписавшись на каналы ниже!").to_dict)
+
+    @no_bug
+    def boost_down(self, bst):
+        if not bst.chn_buttons:
+            return
+
+        pld = PageLoader(21)
+        for btn in bst.chn_buttons:
+            pld += [btn]
+        self.send(pld(bst.boost_changed, bst.boost_changed).to_dict)
 
     def send(self, data, chat_id=None):
         util.send(self.message.chat.id if chat_id is None else chat_id, **data)
