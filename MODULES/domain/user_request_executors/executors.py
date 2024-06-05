@@ -323,20 +323,6 @@ class Exec(Call):
         ).to_dict)
 
     @no_bug
-    def hide_story(self, story_id):
-        """
-        Скрывает историю (Делает неактивной)
-        :param story_id: ID истории
-        :return:
-        """
-        story = Stories.get_by_id(int(story_id))
-        story.is_active = False
-        Stories.save(story)
-        self.edit(PageLoader(19)().to_dict)
-        time.sleep(1)
-        self.next_story()
-
-    @no_bug
     def clear_views(self):
         """
         Очищает таблицу Views для пользователя, отправившего запрос
@@ -408,22 +394,22 @@ class Search:
         ** Кол-во выбираемых записей
         :return: список с ответами на запрос inline_query
         """
-        atths = Authors.select().where(Authors.author_name.contains(self.query)).limit(2)
-        slcct = Stories\
+        authors = Authors.select().where(Authors.author_name.contains(self.query)).limit(2)
+        select = Stories\
             .select()\
-            .where((
-                (Stories.title.contains(self.query)) |
-                (Stories.text.contains(self.query)) |
-                (Stories.author.contains(atths))
-            ) & Stories.is_active)\
+            .where(
+                (Stories.json.contains(self.query.lower())) |
+                (Stories.author.contains(authors))
+            )\
             .limit(self.select_size)
+
         return list(
             map(lambda x: InlineQueryResultArticle(
                 x.id,
-                x.title,
+                (json.loads(x.json)['text'] if 'text' in json.loads(x.json).keys() else json.loads(x.json)['caption'])[:32] + ('...' if len(json.loads(x.json)['text'] if 'text' in json.loads(x.json).keys() else json.loads(x.json)['caption']) > 32 else ''),
                 InputTextMessageContent(f'/at_story {x.id}'),
-                description=f"АВТОР: {x.author.author_name}\nТЕКСТ: {x.text[:128] + ('...' if len(x.text) > 128 else '')}"
-            ), slcct)
+                description=f"АВТОР: {x.author.author_name}\nТЕКСТ: {(json.loads(x.json)['text'] if 'text' in json.loads(x.json).keys() else json.loads(x.json)['caption'])[:128] + ('...' if len(json.loads(x.json)['text'] if 'text' in json.loads(x.json).keys() else json.loads(x.json)['caption']) > 128 else '')}"
+            ), select)
         )
 
     def search(self):
