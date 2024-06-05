@@ -30,7 +30,7 @@ class ToJson:
             'video': self.video_to_dict,
         }
         self.message: Message | None = None
-        self.jresults: tuple[str, str, str] = ('text', 'null', 'null')
+        self.jresults: tuple[str, str, str] = ('null', 'null', 'null')
         self.is_called: bool = False
 
     @staticmethod

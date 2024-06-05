@@ -35,9 +35,9 @@ def no_bug(func):
     """
     def inner(self, *args, **kwargs):
         try:
-            func(self, *args, **kwargs)
+            return func(self, *args, **kwargs)
         except Exception as e:
-            self.send(PageLoader(11)(str(e)).to_dict)
+            self.send(PageLoader(11)(f"({func.__name__}): {e}").to_dict)
 
     return inner
 
@@ -266,25 +266,23 @@ class Exec(Call):
 
     @no_bug
     def plagiat(self, text: str) -> bool:
-        stories_texts = map(lambda x: json.loads(x), Stories.select())
+        stories_texts = map(lambda x: json.loads(x.json), Stories.select())
         stories_texts = map(lambda x: x['text'] if 'text' in x.keys() else x['caption'], stories_texts)
+        text = set(map(lambda y: MORPH.parse(util.remove_punctuation(y).lower())[0].normal_form, text.split()))
+        stories_texts = list(map(lambda x: set(map(lambda y: MORPH.parse(util.remove_punctuation(y).lower())[0].normal_form, x.split())), stories_texts))
 
         pld = PageLoader(14)
-        grp = Graph(len(list(stories_texts)))
+        grp = Graph(len(stories_texts))
 
         for stext in stories_texts:
-            same_words = 0
-            for compare in zip(text.split(), stext.split()):
-                same_words += int(MORPH.parse(compare[0])[0].word == MORPH.parse(compare[1])[0].word)
+            if len(text & stext) / len(text) > 0.9:
+                return True
 
-            if same_words / len(max([text.split(), stext.split()], key=len)) < 0.9:
-                grp += 1
-                self.edit(pld(str(grp)).to_dict)
-                continue
+            grp += 1
+            self.edit(pld(str(grp)).to_dict)
 
-            return False
+        return False
 
-        return True
 
 
 

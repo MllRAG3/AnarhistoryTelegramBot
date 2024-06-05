@@ -59,3 +59,11 @@ def edit(message_id, chat_id, type, kwargs_json, markup, **additional_buttons: l
             GUARD.edit_message_caption(message_id=message_id, chat_id=chat_id, **kwargs, reply_markup=markup)
         case _:
             raise NotImplementedError(f'Тип сообщений >>{type}<< не может быть отправлен данным методом!')
+
+
+def remove_punctuation(s: str):
+    punctuation = ['.', ',', '!', '?', '-', '(', ')', '"', "'"]
+    for p in punctuation:
+        s = s.replace(p, "")
+
+    return s
