@@ -1,3 +1,4 @@
+import json
 import random
 import time
 
@@ -244,62 +245,52 @@ class Exec(Call):
         :return:
         """
         self.edit(PageLoader(12)().to_dict)
-        GUARD.register_next_step_handler(self.message, callback=self.add_header)
+        tj = ToJson()
+        GUARD.register_next_step_handler(self.message, callback=tj)
+        while not tj.is_called:
+            pass
+
+        story_type, story_json, _ = tj.jresults
+        GUARD.delete_message(self.message.chat.id, tj.message.id)
+        if self.plagiat(tj.message.text if tj.message.text is not None else tj.message.caption):
+            self.edit(PageLoader(13)().to_dict)
+            return
+
+        Stories.create(
+            author=self.db_user,
+            json=story_json,
+            type=story_type,
+        )
+
+        self.edit(PageLoader(15)().to_dict)
 
     @no_bug
-    def add_header(self, message):
-        """
-        Страница бота - добавить заголовок истории
-        :param message: Объект класса telebot.types.Message с ответом пользователя
-        :return:
-        """
-        GUARD.delete_message(self.message.chat.id, message.id)
-        self.edit(PageLoader(13)().to_dict)
-        GUARD.register_next_step_handler(self.message, self.check_text, message.text)
+    def plagiat(self, text: str) -> bool:
+        stories_texts = map(lambda x: json.loads(x), Stories.select())
+        stories_texts = map(lambda x: x['text'] if 'text' in x.keys() else x['caption'], stories_texts)
 
-    @no_bug
-    def check_text(self, message, title):
-        """
-        Проверяет текст истории на уникальность (При совпадении больше чем на 89% - история не добавляется)
-        :param message: Объект класса telebot.types.Message с ответом пользователя
-        :param title: Заголовок истории
-        :return:
-        """
-        GUARD.delete_message(self.message.chat.id, message.id)
-        stories = Stories.select()
         pld = PageLoader(14)
-        grp = Graph(len(stories))
-        for story in stories:
-            same = 0
-            for comp in zip(message.text.split(), story.text.split()):
-                same += int(MORPH.parse(comp[0])[0].word == MORPH.parse(comp[1])[0].word)
-            same_percent = (same / len(max([message.text.split(), story.text.split()], key=len))) * 100
-            if same_percent < 89:
+        grp = Graph(len(list(stories_texts)))
+
+        for stext in stories_texts:
+            same_words = 0
+            for compare in zip(text.split(), stext.split()):
+                same_words += int(MORPH.parse(compare[0])[0].word == MORPH.parse(compare[1])[0].word)
+
+            if same_words / len(max([text.split(), stext.split()], key=len)) < 0.9:
                 grp += 1
                 self.edit(pld(str(grp)).to_dict)
                 continue
-            self.final_add_story(False, '', '')
-            return
 
-        self.final_add_story(True, message.text, title)
+            return False
 
-    @no_bug
-    def final_add_story(self, add: bool, text, title):
-        """
-        Заканчивает процесс добавления истории в бд
-        :param add: Сохранить историю (при подозрениях на не уникальность текста False)
-        :param text: Текст истории
-        :param title: Заголовок истории
-        :return:
-        """
-        new = Stories(
-            text=text,
-            title=title,
-            author=self.db_user
-        )
-        if add:
-            new.save()
-        self.edit(PageLoader(15)().to_dict)
+        return True
+
+
+
+
+
+
 
     @no_bug
     def next_story(self):
