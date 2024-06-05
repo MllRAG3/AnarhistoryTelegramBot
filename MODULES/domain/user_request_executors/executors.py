@@ -38,10 +38,11 @@ def no_bug(func):
     :return:
     """
     def inner(self, *args, **kwargs):
-        try:
-            return func(self, *args, **kwargs)
-        except Exception as e:
-            self.send(PageLoader(11)(f"({func.__name__}): {e}").to_dict)
+        func(self, *args, **kwargs)
+        # try:
+        #     return func(self, *args, **kwargs)
+        # except Exception as e:
+        #     self.send(PageLoader(11)(f"({func.__name__}): {e}").to_dict)
 
     return inner
 
@@ -301,8 +302,9 @@ class Exec(Call):
         """
         v = list(map(lambda x: x.story.id, Views.select().where(Views.user == self.db_user)[:]))
         try:
-            story: Stories = random.choice(Stories.select().where((~Stories.id.in_(v)) & Stories.is_active))
-        except (IndexError, AttributeError):
+            story: Stories = random.choice(Stories.select().where(~Stories.id.in_(v)))
+        except (IndexError, AttributeError) as e:
+            print(e)
             self.edit(PageLoader(16)().to_dict)
             return
         Views.create(user=self.db_user, story=story)
