@@ -26,6 +26,9 @@ from MODULES.database.models.stories import Stories, Views
 from peewee import DoesNotExist
 
 
+from MODULES.constants.config import MAIN_BOT_TOKEN
+
+
 def no_bug(func):
     """
     При возникновении ошибки в процессе выполнения метода
@@ -398,19 +401,30 @@ class Search:
         select = Stories\
             .select()\
             .where(
-                (Stories.json.contains(self.query.lower())) |
-                (Stories.author.contains(authors))
+                (Stories.json.contains(self.query)) |
+                (Stories.author.in_(authors))
             )\
             .limit(self.select_size)
 
-        return list(
-            map(lambda x: InlineQueryResultArticle(
-                x.id,
-                (json.loads(x.json)['text'] if 'text' in json.loads(x.json).keys() else json.loads(x.json)['caption'])[:32] + ('...' if len(json.loads(x.json)['text'] if 'text' in json.loads(x.json).keys() else json.loads(x.json)['caption']) > 32 else ''),
-                InputTextMessageContent(f'/at_story {x.id}'),
-                description=f"АВТОР: {x.author.author_name}\nТЕКСТ: {(json.loads(x.json)['text'] if 'text' in json.loads(x.json).keys() else json.loads(x.json)['caption'])[:128] + ('...' if len(json.loads(x.json)['text'] if 'text' in json.loads(x.json).keys() else json.loads(x.json)['caption']) > 128 else '')}"
-            ), select)
-        )
+        articles = []
+        for res in select:
+            D = json.loads(res.json)
+            text = D['text'] if 'text' in D.keys() else D['caption']
+
+            # if res.type in ['animation', 'photo', 'video']:
+            #     path = GUARD.get_file(D[res.type]).file_path
+            #     thumbnail = f"https://t.me/file/bot{MAIN_BOT_TOKEN}/{path}"
+            # else:
+            #     thumbnail = None
+
+            articles.append(InlineQueryResultArticle(
+                id=res.id,
+                title=text + ('...' if len(text) > 32 else ''),
+                input_message_content=InputTextMessageContent(f'/at_story {res.id}'),
+                description=f"АВТОР: {res.author.author_name}\nТЕКСТ: {text[:128] + ('...' if len(text) > 128 else '')}",
+            ))
+
+        return articles
 
     def search(self):
         """
