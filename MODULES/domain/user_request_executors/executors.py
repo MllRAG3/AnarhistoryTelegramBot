@@ -7,7 +7,8 @@ from telebot.types import \
     User, \
     InlineQuery, \
     InlineQueryResultArticle, \
-    InputTextMessageContent
+    InputTextMessageContent, \
+    InlineKeyboardMarkup
 from telebot.apihelper import ApiTelegramException
 
 from MODULES.constants.reg_variables.BOT import GUARD
@@ -286,15 +287,8 @@ class Exec(Call):
 
         return False
 
-
-
-
-
-
-
-
     @no_bug
-    def next_story(self):
+    def read_stories(self):
         """
         Высылает новую историю из бд для просмотра. Критерии select запроса:
 
@@ -307,23 +301,20 @@ class Exec(Call):
         """
         v = list(map(lambda x: x.story.id, Views.select().where(Views.user == self.db_user)[:]))
         try:
-            n: Stories = random.choice(Stories.select().where((~Stories.id.in_(v)) & Stories.is_active))
+            story: Stories = random.choice(Stories.select().where((~Stories.id.in_(v)) & Stories.is_active))
         except (IndexError, AttributeError):
             self.edit(PageLoader(16)().to_dict)
             return
-        Views.create(user=self.db_user, story=n)
-        n.author.stat.views += 1
-        Stats.save(n.author.stat)
+        Views.create(user=self.db_user, story=story)
+        story.author.stat.views += 1
+        Stats.save(story.author.stat)
 
-        pld = PageLoader(17)
-        pld += [util.button('Оказать уважение', f'respect 1 {n.author.id}')]
-        if self.db_user.is_admin:
-            pld += [util.button('Скрыть историю', f'hide_story {n.id}')]
-        self.edit(pld(
-            n.title,
-            n.author.author_name,
-            n.text
-        ).to_dict)
+        markup = InlineKeyboardMarkup().row(
+            util.button('👍', f'respect 1 {story.author.id}'),
+            util.button('>>-ДАЛЬШЕ->', 'read_stories')
+        )
+        D = {'type': story.type, 'kwargs_json': story.json, 'markup': markup}
+        self.edit(D)
 
     @no_bug
     def clear_views(self):
@@ -349,23 +340,15 @@ class Exec(Call):
         ath = Authors.get_by_id(author_id)
         ath.stat.respect += int(amount)
         Stats.save(ath.stat)
-        self.edit(PageLoader(18)(ath.author_name).to_dict)
+        self.edit(PageLoader(22)(ath.author_name, amount).to_dict)
         time.sleep(1)
-        self.next_story()
+        self.read_stories()
 
     @no_bug
-    def at_story(self, _id):
-        """
-        Высылает историю с указанным ID (Для inline поиска)
-        :param _id: ID истории
-        :return:
-        """
-        story: Stories = Stories.get_by_id(_id)
-        self.edit(PageLoader(17)(
-            story.title,
-            story.author.author_name,
-            story.text,
-        ).to_dict)
+    def at_story(self, id_):
+        story: Stories = Stories.get_by_id(id_)
+        D = {'type': story.type, 'kwargs_json': story.json}
+        self.send(D)
 
 
 class Search:

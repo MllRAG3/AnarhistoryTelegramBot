@@ -1,6 +1,7 @@
 import json
 
 import telebot.apihelper
+from telebot.types import InlineKeyboardMarkup
 
 from MODULES.constants.reg_variables.BOT import GUARD
 from telebot.types import InlineKeyboardButton
@@ -12,7 +13,7 @@ def button(text, call_data) -> InlineKeyboardButton:
     return InlineKeyboardButton(text, callback_data=call_data)
 
 
-def send(chat_id, type, kwargs_json, markup, **additional_buttons: list[InlineKeyboardButton]):
+def send(chat_id, type, kwargs_json, markup=InlineKeyboardMarkup(), **additional_buttons: list[InlineKeyboardButton]):
     kwargs = json.loads(kwargs_json)
     for row in additional_buttons.values():
         markup.row(row)
