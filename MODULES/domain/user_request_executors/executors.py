@@ -8,7 +8,8 @@ from telebot.types import \
     InlineQuery, \
     InlineQueryResultArticle, \
     InputTextMessageContent, \
-    InlineKeyboardMarkup
+    ReplyKeyboardMarkup, \
+    KeyboardButton
 from telebot.apihelper import ApiTelegramException
 
 from MODULES.constants.reg_variables.BOT import GUARD
@@ -26,23 +27,17 @@ from MODULES.database.models.users import Authors, Stats
 from MODULES.database.models.stories import Stories, Views
 from peewee import DoesNotExist
 
+HISTORY: list[Stories] = []
+HISTORY_ID: int = -1
 
-from MODULES.constants.config import MAIN_BOT_TOKEN
 
-
-def no_bug(func):
-    """
-    При возникновении ошибки в процессе выполнения метода
-    высылает сообщение с соответствующим текстом
-    :param func: Метод, который передается в декоратор
-    :return:
-    """
-    def inner(self, *args, **kwargs):
-        func(self, *args, **kwargs)
-        # try:
-        #     return func(self, *args, **kwargs)
-        # except Exception as e:
-        #     self.send(PageLoader(11)(f"({func.__name__}): {e}").to_dict)
+def return_none_if_error(func):
+    def inner(*args, **kwargs):
+        try:
+            return func(*args, **kwargs)
+        except Exception as e:  # gungrave
+            error = e
+            return None
 
     return inner
 
@@ -72,7 +67,7 @@ class Exec(Call):
 
         boost.rollback()
 
-    @no_bug
+    
     def boost_up(self, bst):
         if not bst.chn_buttons:
             self.send(PageLoader(20)(-bst.boost_changed, -bst.boost_changed, ".").to_dict)
@@ -83,7 +78,7 @@ class Exec(Call):
             pld += [btn]
         self.send(pld(-bst.boost_changed, -bst.boost_changed, ", но ты все еще можешь повысить его подписавшись на каналы ниже!").to_dict)
 
-    @no_bug
+    
     def boost_down(self, bst):
         if not bst.chn_buttons:
             return
@@ -99,7 +94,7 @@ class Exec(Call):
     def edit(self, data):
         util.edit(self.message.id, self.message.chat.id, **data)
 
-    @no_bug
+    
     def load_db_user(self):
         """
         Загружает пользователя из базы данных;
@@ -118,7 +113,7 @@ class Exec(Call):
             }
             self.db_user = Authors.create(**data)
 
-    @no_bug
+    
     def cancel(self, page):
         """
         Отменяет next_step_handler и откатывается до предыдущей страницы
@@ -142,7 +137,7 @@ class Exec(Call):
     def rickroll(self):
         self.send(PageLoader(19)().to_dict)
 
-    @no_bug
+    
     def start(self):
         """
         Страница бота - старт
@@ -153,7 +148,7 @@ class Exec(Call):
             return
         self.send(PageLoader(1)().to_dict)
 
-    @no_bug
+    
     def add_author_name(self):
         """
         Страница бота - добавить псевдоним
@@ -162,7 +157,7 @@ class Exec(Call):
         self.edit(PageLoader(2)().to_dict)
         GUARD.register_next_step_handler(self.message, callback=self.check_new_author_name)
 
-    @no_bug
+    
     def check_new_author_name(self, message):
         """
         Проверяет новое имя автора по нескольким критериям:
@@ -175,7 +170,7 @@ class Exec(Call):
         :param message: Объект класса telebot.types.Message - сообщение пользователя с псевдонимом
         :return:
         """
-        GUARD.delete_message(self.message.chat.id, message.id)
+        self.delete_message(message.id)
         if len(message.text) > 16:
             self.edit(PageLoader(3)().to_dict)
             return
@@ -190,7 +185,7 @@ class Exec(Call):
         Authors.save(self.db_user)
         self.edit(PageLoader(5)().to_dict)
 
-    @no_bug
+    
     def main(self):
         """
         Страница бота - главная
@@ -203,7 +198,7 @@ class Exec(Call):
             str(round((self.db_user.stat.respect / (self.db_user.stat.views + (1 if self.db_user.stat.views == 0 else 0)))*100, 2)).ljust(4, "0")
         ).to_dict)
 
-    @no_bug
+    
     def change_author_name(self):
         """
         Страница бота - сменит псевдоним
@@ -212,7 +207,7 @@ class Exec(Call):
         self.edit(PageLoader(7)().to_dict)
         GUARD.register_next_step_handler(self.message, callback=self.check_changed_author_name)
 
-    @no_bug
+    
     def check_changed_author_name(self, message):
         """
         Проверяет введенное имя автора по нескольким критериям:
@@ -225,7 +220,7 @@ class Exec(Call):
         :param message: Объект класса telebot.types.Message - сообщение пользователя с псевдонимом
         :return:
         """
-        GUARD.delete_message(self.message.chat.id, message.id)
+        self.delete_message(message.id)
         if len(message.text) > 16:
             self.edit(PageLoader(8)().to_dict)
             return
@@ -243,7 +238,7 @@ class Exec(Call):
             time.sleep(1)
         self.main()
 
-    @no_bug
+    
     def add_story(self):
         """
         Страница бота - добавить историю
@@ -256,7 +251,7 @@ class Exec(Call):
             pass
 
         story_type, story_json, _ = tj.jresults
-        GUARD.delete_message(self.message.chat.id, tj.message.id)
+        self.delete_message(tj.message.id)
         if self.plagiat(tj.message.text if tj.message.text is not None else tj.message.caption):
             self.edit(PageLoader(13)().to_dict)
             return
@@ -269,7 +264,7 @@ class Exec(Call):
 
         self.edit(PageLoader(15)().to_dict)
 
-    @no_bug
+    
     def plagiat(self, text: str) -> bool:
         stories_texts = map(lambda x: json.loads(x.json), Stories.select())
         stories_texts = map(lambda x: x['text'] if 'text' in x.keys() else x['caption'], stories_texts)
@@ -288,37 +283,71 @@ class Exec(Call):
 
         return False
 
-    @no_bug
-    def read_stories(self):
-        """
-        Высылает новую историю из бд для просмотра. Критерии select запроса:
+    def delete_message(self, id_):
+        GUARD.delete_message(self.message.chat.id, message_id=id_)
 
-        1. История не добавлена в таблицу Views => не просмотрена пользователем
+    @property
+    @return_none_if_error
+    def add_new_story(self) -> Stories | None:
+        views = list(map(lambda x: x.story.id, Views.select().where(Views.user == self.db_user)[:]))
+        story: Stories = random.choice(Stories.select().where(~Stories.id.in_(views)))
+        print(23, story)
 
-        2. История является активной (не скрытой)
-
-        Автоматически добавляет выбранную историю в таблицу Views
-        :return:
-        """
-        v = list(map(lambda x: x.story.id, Views.select().where(Views.user == self.db_user)[:]))
-        try:
-            story: Stories = random.choice(Stories.select().where(~Stories.id.in_(v)))
-        except (IndexError, AttributeError) as e:
-            print(e)
-            self.edit(PageLoader(16)().to_dict)
-            return
         Views.create(user=self.db_user, story=story)
         story.author.stat.views += 1
         Stats.save(story.author.stat)
 
-        markup = InlineKeyboardMarkup().row(
-            util.button('👍', f'respect 1 {story.author.id}'),
-            util.button('>>-ДАЛЬШЕ->', 'read_stories')
-        )
-        D = {'type': story.type, 'kwargs_json': story.json, 'markup': markup}
-        self.edit(D)
+        return story
 
-    @no_bug
+    @property
+    @return_none_if_error
+    def previous_story(self):
+        global HISTORY_ID
+        HISTORY_ID -= 1
+        return HISTORY[HISTORY_ID]
+
+    @property
+    @return_none_if_error
+    def next_story(self):
+        global HISTORY_ID
+        try:
+            HISTORY_ID += 1
+            return HISTORY[HISTORY_ID]
+        except IndexError:
+            return self.new_story
+
+    @property
+    @return_none_if_error
+    def new_story(self):
+        story = self.add_new_story
+        if story is None:
+            self.send(PageLoader(23)().to_dict)
+            return None
+
+        global HISTORY, HISTORY_ID
+        HISTORY.append(story)
+        HISTORY_ID = HISTORY.index(HISTORY[-1])
+
+        return HISTORY[HISTORY_ID]
+
+    def start_reading(self):
+        self.read_stories(self.new_story)
+
+    def read_stories(self, story: Stories | None = None):
+        if story is None:
+            return  # берсерк
+
+        markup = ReplyKeyboardMarkup(resize_keyboard=True)
+        markup.row(
+            KeyboardButton("<-НАЗАД-<<"),
+            KeyboardButton("ГЛАВНАЯ"),
+            KeyboardButton(">>-ДАЛЬШЕ->"),
+        )
+        markup.row(KeyboardButton(f"ОТБЛАГОДАРИТЬ {story.author.author_name}"))
+
+        D = {'type': story.type, 'kwargs_json': story.json, 'markup': markup}
+        self.send(D)
+
     def clear_views(self):
         """
         Очищает таблицу Views для пользователя, отправившего запрос
@@ -330,23 +359,15 @@ class Exec(Call):
             except ApiTelegramException:
                 pass
         self.edit(PageLoader(16)().to_dict)
-
-    @no_bug
-    def respect(self, amount, author_id):
-        """
-        Прибавляет уважение к автору с указанным ID
-        :param amount: размер респекта
-        :param author_id: ID автора кто получит респект
-        :return:
-        """
-        ath = Authors.get_by_id(author_id)
+    
+    def respect(self, amount, author_name):
+        ath = Authors.get(author_name=author_name)
         ath.stat.respect += int(amount)
         Stats.save(ath.stat)
-        self.edit(PageLoader(22)(ath.author_name, amount).to_dict)
+        self.send(PageLoader(22)(ath.author_name, amount).to_dict)
         time.sleep(1)
         self.read_stories()
 
-    @no_bug
     def at_story(self, id_):
         story: Stories = Stories.get_by_id(id_)
         D = {'type': story.type, 'kwargs_json': story.json}

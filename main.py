@@ -35,6 +35,28 @@ def start_mailing(message: Message):
     MailingSender()()
 
 
+@GUARD.message_handler(func=lambda message: message.text == '<-НАЗАД-<<')
+def main(message: Message):
+    ex = Exec(message)
+    ex.read_stories(story=ex.previous_story)
+
+
+@GUARD.message_handler(func=lambda message: message.text == 'ГЛАВНАЯ')
+def main(message: Message):
+    Exec(message).main()
+
+
+@GUARD.message_handler(func=lambda message: message.text == '>>-ДАЛЬШЕ->')
+def main(message: Message):
+    ex = Exec(message)
+    ex.read_stories(story=ex.new_story)
+
+
+@GUARD.message_handler(func=lambda message: 'ОТБЛАГОДАРИТЬ' in message.text)
+def main(message: Message):
+    Exec(message).respect(1, message.text.strip('ОТБЛАГОДАРИТЬ').strip())
+
+
 @GUARD.callback_query_handler(func=lambda call: True)
 def call_data_handler(call: CallbackQuery):
     ex = Exec(call.message, user=call.from_user)

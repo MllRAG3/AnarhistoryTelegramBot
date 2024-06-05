@@ -55,13 +55,8 @@ def edit(message_id, chat_id, type, kwargs_json, markup, **additional_buttons: l
     match type:
         case 'text':
             GUARD.edit_message_text(message_id=message_id, chat_id=chat_id, **kwargs, reply_markup=markup)
-        case _ as case if case in ['photo', 'audio', 'document', 'video', 'animation']:
-            GUARD.edit_message_media(message_id=message_id, chat_id=chat_id, media=GUARD.get_file(kwargs[case]))
-            del kwargs[case]
-            print(kwargs)
-            GUARD.edit_message_caption(message_id=message_id, chat_id=chat_id, **kwargs, reply_markup=markup)
-        case _:
-            raise NotImplementedError(f'Тип сообщений >>{type}<< не может быть отправлен данным методом!')
+        case _ as unsupported_type:
+            raise NotImplementedError(f'Тип медиа ->{unsupported_type}<- не поддерживается!')
 
 
 def remove_punctuation(s: str):

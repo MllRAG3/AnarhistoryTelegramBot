@@ -1,3 +1,4 @@
 from typing import Final
 
-MAIN_BOT_TOKEN: Final[str] = '6848386363:AAGAVW-SueX-JxddIsHjXmYDxBvNvyvbR9c'
+MAIN_BOT_TOKEN: Final[str] = '7267573415:AAHbauG6nQD-beFTri7BVEkYIHyYEPtklI0'
+RESERVE_BOT_TOKEN = "6848386363:AAGAVW-SueX-JxddIsHjXmYDxBvNvyvbR9c"
