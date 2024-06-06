@@ -42,7 +42,7 @@ def return_none_if_error(func):
     return inner
 
 
-class Exec(Call):
+class BaseExec:
     def __init__(self, message: Message, user: User | None = None):
         """
         :param message: Объект класса telebot.types.Message - информация о сообщении
@@ -54,48 +54,9 @@ class Exec(Call):
         self.user = message.from_user if user is None else user
         self.db_user: Authors | None = None
 
-        self.load_db_user()
+        self.get_or_create_db_user()
 
-    def check_boosts(self):
-        boost = Boost(self.db_user)
-        if boost.boost_changed == 0:
-            return
-        elif boost.boost_changed < 0:
-            self.boost_up(boost)
-        elif boost.boost_changed > 0:
-            self.boost_down(boost)
-
-        boost.rollback()
-
-    
-    def boost_up(self, bst):
-        if not bst.chn_buttons:
-            self.send(PageLoader(20)(-bst.boost_changed, -bst.boost_changed, ".").to_dict)
-            return
-
-        pld = PageLoader(20)
-        for btn in bst.chn_buttons:
-            pld += [btn]
-        self.send(pld(-bst.boost_changed, -bst.boost_changed, ", но ты все еще можешь повысить его подписавшись на каналы ниже!").to_dict)
-
-    
-    def boost_down(self, bst):
-        if not bst.chn_buttons:
-            return
-
-        pld = PageLoader(21)
-        for btn in bst.chn_buttons:
-            pld += [btn]
-        self.send(pld(bst.boost_changed, bst.boost_changed).to_dict)
-
-    def send(self, data, chat_id=None):
-        util.send(self.message.chat.id if chat_id is None else chat_id, **data)
-
-    def edit(self, data):
-        util.edit(self.message.id, self.message.chat.id, **data)
-
-    
-    def load_db_user(self):
+    def get_or_create_db_user(self):
         """
         Загружает пользователя из базы данных;
         В случае отсутствия пользователя - создает запись
@@ -113,7 +74,12 @@ class Exec(Call):
             }
             self.db_user = Authors.create(**data)
 
-    
+    def send(self, data, chat_id=None):
+        util.send(self.message.chat.id if chat_id is None else chat_id, **data)
+
+    def edit(self, data):
+        util.edit(self.message.id, self.message.chat.id, **data)
+
     def cancel(self, page):
         """
         Отменяет next_step_handler и откатывается до предыдущей страницы
@@ -123,6 +89,46 @@ class Exec(Call):
         GUARD.clear_step_handler(self.message)
         page = getattr(self, page)
         page()
+
+    def delete_message(self, id_):
+        GUARD.delete_message(self.message.chat.id, message_id=id_)
+
+
+class BotPages(BaseExec, Call):
+    def __init__(self, message: Message, user: User | None = None):
+        super().__init__(message, user=user)
+        self.register_inline_keyboard: bool = False
+
+    def check_boosts(self):
+        boost = Boost(self.db_user)
+        if boost.boost_changed == 0:
+            return
+        elif boost.boost_changed < 0:
+            self.__boost_upped(boost)
+        elif boost.boost_changed > 0:
+            self.__boost_downed(boost)
+
+        boost.rollback()
+
+    def __boost_upped(self, bst):
+        if not bst.chn_buttons:
+            self.send(PageLoader(20)(-bst.boost_changed, -bst.boost_changed, ".").to_dict)
+            return
+
+        pld = PageLoader(20)
+        for btn in bst.chn_buttons:
+            pld += [btn]
+        self.send(pld(-bst.boost_changed, -bst.boost_changed,
+                      ", но ты все еще можешь повысить его подписавшись на каналы ниже!").to_dict)
+
+    def __boost_downed(self, bst):
+        if not bst.chn_buttons:
+            return
+
+        pld = PageLoader(21)
+        for btn in bst.chn_buttons:
+            pld += [btn]
+        self.send(pld(bst.boost_changed, bst.boost_changed).to_dict)
 
     def dismember_message(self):
         if not self.db_user.is_admin:
@@ -137,7 +143,6 @@ class Exec(Call):
     def rickroll(self):
         self.send(PageLoader(19)().to_dict)
 
-    
     def start(self):
         """
         Страница бота - старт
@@ -148,17 +153,15 @@ class Exec(Call):
             return
         self.send(PageLoader(1)().to_dict)
 
-    
     def add_author_name(self):
         """
         Страница бота - добавить псевдоним
         :return:
         """
         self.edit(PageLoader(2)().to_dict)
-        GUARD.register_next_step_handler(self.message, callback=self.check_new_author_name)
+        GUARD.register_next_step_handler(self.message, callback=self.__check_new_author_name)
 
-    
-    def check_new_author_name(self, message):
+    def __check_new_author_name(self, message):
         """
         Проверяет новое имя автора по нескольким критериям:
 
@@ -185,7 +188,6 @@ class Exec(Call):
         Authors.save(self.db_user)
         self.edit(PageLoader(5)().to_dict)
 
-    
     def main(self):
         """
         Страница бота - главная
@@ -198,17 +200,15 @@ class Exec(Call):
             str(round((self.db_user.stat.respect / (self.db_user.stat.views + (1 if self.db_user.stat.views == 0 else 0)))*100, 2)).ljust(4, "0")
         ).to_dict)
 
-    
     def change_author_name(self):
         """
         Страница бота - сменит псевдоним
         :return:
         """
         self.edit(PageLoader(7)().to_dict)
-        GUARD.register_next_step_handler(self.message, callback=self.check_changed_author_name)
+        GUARD.register_next_step_handler(self.message, callback=self.__check_changed_author_name)
 
-    
-    def check_changed_author_name(self, message):
+    def __check_changed_author_name(self, message):
         """
         Проверяет введенное имя автора по нескольким критериям:
 
@@ -238,7 +238,6 @@ class Exec(Call):
             time.sleep(1)
         self.main()
 
-    
     def add_story(self):
         """
         Страница бота - добавить историю
@@ -252,7 +251,7 @@ class Exec(Call):
 
         story_type, story_json, _ = tj.jresults
         self.delete_message(tj.message.id)
-        if self.plagiat(tj.message.text if tj.message.text is not None else tj.message.caption):
+        if self.__plagiat(tj.message.text if tj.message.text is not None else tj.message.caption):
             self.edit(PageLoader(13)().to_dict)
             return
 
@@ -264,8 +263,7 @@ class Exec(Call):
 
         self.edit(PageLoader(15)().to_dict)
 
-    
-    def plagiat(self, text: str) -> bool:
+    def __plagiat(self, text: str) -> bool:
         stories_texts = map(lambda x: json.loads(x.json), Stories.select())
         stories_texts = map(lambda x: x['text'] if 'text' in x.keys() else x['caption'], stories_texts)
         text = set(map(lambda y: MORPH.parse(util.remove_punctuation(y).lower())[0].normal_form, text.split()))
@@ -283,21 +281,31 @@ class Exec(Call):
 
         return False
 
-    def delete_message(self, id_):
-        GUARD.delete_message(self.message.chat.id, message_id=id_)
-
     @property
     @return_none_if_error
-    def add_new_story(self) -> Stories | None:
+    def __get_new_story(self) -> Stories | None:
         views = list(map(lambda x: x.story.id, Views.select().where(Views.user == self.db_user)[:]))
         story: Stories = random.choice(Stories.select().where(~Stories.id.in_(views)))
-        print(23, story)
 
         Views.create(user=self.db_user, story=story)
         story.author.stat.views += 1
         Stats.save(story.author.stat)
 
         return story
+
+    @property
+    @return_none_if_error
+    def __add_new_story_to_history(self):
+        story = self.__get_new_story
+        if story is None:
+            self.send(PageLoader(23)().to_dict)
+            return None
+
+        global HISTORY, HISTORY_ID
+        HISTORY.append(story)
+        HISTORY_ID = HISTORY.index(HISTORY[-1])
+
+        return HISTORY[HISTORY_ID]
 
     @property
     @return_none_if_error
@@ -314,30 +322,16 @@ class Exec(Call):
             HISTORY_ID += 1
             return HISTORY[HISTORY_ID]
         except IndexError:
-            return self.new_story
-
-    @property
-    @return_none_if_error
-    def new_story(self):
-        story = self.add_new_story
-        if story is None:
-            self.send(PageLoader(23)().to_dict)
-            return None
-
-        global HISTORY, HISTORY_ID
-        HISTORY.append(story)
-        HISTORY_ID = HISTORY.index(HISTORY[-1])
-
-        return HISTORY[HISTORY_ID]
+            return self.__add_new_story_to_history
 
     def start_reading(self):
-        self.read_stories(self.new_story)
+        self.show_story(self.__add_new_story_to_history)
 
-    def read_stories(self, story: Stories | None = None):
+    def show_story(self, story: Stories | None = None):
         if story is None:
             return  # берсерк
 
-        markup = ReplyKeyboardMarkup(resize_keyboard=True)
+        markup = ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
         markup.row(
             KeyboardButton("<-НАЗАД-<<"),
             KeyboardButton("ГЛАВНАЯ"),
@@ -346,6 +340,20 @@ class Exec(Call):
         markup.row(KeyboardButton(f"ОТБЛАГОДАРИТЬ {story.author.author_name}"))
 
         D = {'type': story.type, 'kwargs_json': story.json, 'markup': markup}
+        self.send(D)
+
+    def respect(self, amount, author_name):
+        ath = Authors.get(author_name=author_name)
+        ath.stat.respect += int(amount)
+        Stats.save(ath.stat)
+        self.send(PageLoader(22)(ath.author_name, amount).to_dict)
+        time.sleep(1)
+        self.show_story()
+
+    def at_story(self, id_):
+        self.delete_message(self.message.id)
+        story: Stories = Stories.get_by_id(id_)
+        D = {'type': story.type, 'kwargs_json': story.json}
         self.send(D)
 
     def clear_views(self):
@@ -359,19 +367,6 @@ class Exec(Call):
             except ApiTelegramException:
                 pass
         self.edit(PageLoader(16)().to_dict)
-    
-    def respect(self, amount, author_name):
-        ath = Authors.get(author_name=author_name)
-        ath.stat.respect += int(amount)
-        Stats.save(ath.stat)
-        self.send(PageLoader(22)(ath.author_name, amount).to_dict)
-        time.sleep(1)
-        self.read_stories()
-
-    def at_story(self, id_):
-        story: Stories = Stories.get_by_id(id_)
-        D = {'type': story.type, 'kwargs_json': story.json}
-        self.send(D)
 
 
 class Search:
