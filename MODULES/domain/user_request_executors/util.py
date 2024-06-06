@@ -1,6 +1,7 @@
 import json
 
 import telebot.apihelper
+from telebot.types import InlineKeyboardMarkup
 
 from MODULES.constants.reg_variables.BOT import GUARD
 from telebot.types import InlineKeyboardButton
@@ -12,7 +13,7 @@ def button(text, call_data) -> InlineKeyboardButton:
     return InlineKeyboardButton(text, callback_data=call_data)
 
 
-def send(chat_id, type, kwargs_json, markup, **additional_buttons: list[InlineKeyboardButton]):
+def send(chat_id, type, kwargs_json, markup=InlineKeyboardMarkup(), **additional_buttons: list[InlineKeyboardButton]):
     kwargs = json.loads(kwargs_json)
     for row in additional_buttons.values():
         markup.row(row)
@@ -54,8 +55,13 @@ def edit(message_id, chat_id, type, kwargs_json, markup, **additional_buttons: l
     match type:
         case 'text':
             GUARD.edit_message_text(message_id=message_id, chat_id=chat_id, **kwargs, reply_markup=markup)
-        case _ as case if case in ['photo', 'audio', 'document', 'video', 'animation']:
-            GUARD.edit_message_media(message_id=message_id, chat_id=chat_id, **kwargs)
-            GUARD.edit_message_caption(message_id=message_id, chat_id=chat_id, **kwargs, reply_markup=markup)
-        case _:
-            raise NotImplementedError(f'Тип сообщений >>{type}<< не может быть отправлен данным методом!')
+        case _ as unsupported_type:
+            raise NotImplementedError(f'Тип медиа ->{unsupported_type}<- не поддерживается!')
+
+
+def remove_punctuation(s: str):
+    punctuation = ['.', ',', '!', '?', '-', '(', ')', '"', "'"]
+    for p in punctuation:
+        s = s.replace(p, "")
+
+    return s

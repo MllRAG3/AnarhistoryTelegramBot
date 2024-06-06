@@ -29,7 +29,8 @@ class ToJson:
             'photo': self.photo_to_dict,
             'video': self.video_to_dict,
         }
-        self.jresults: tuple[str, str, str] = ('text', 'null', 'null')
+        self.message: Message | None = None
+        self.jresults: tuple[str, str, str] = ('null', 'null', 'null')
         self.is_called: bool = False
 
     @staticmethod
@@ -120,4 +121,5 @@ class ToJson:
         except (TypeError, KeyError):
             raise Exception(f'Данный тип сообщения не поддерживается! ({message.content_type})')
         self.jresults = message.content_type, json.dumps(to_send, ensure_ascii=False), json.dumps(buttons, ensure_ascii=False)
+        self.message = message
         self.is_called = True

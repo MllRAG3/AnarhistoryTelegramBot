@@ -1,14 +1,13 @@
 from MODULES.database.models.base_model import BaseModelWithLogging
 from MODULES.database.models.users import Authors
 
-from peewee import CharField, BooleanField, ForeignKeyField
+from peewee import CharField, ForeignKeyField
 
 
 class Stories(BaseModelWithLogging):
-    title = CharField(max_length=32)
-    text = CharField(max_length=4096)
-    is_active = BooleanField(default=True)
     author = ForeignKeyField(Authors, backref='stories')
+    json = CharField(max_length=4096)
+    type = CharField(max_length=32)
 
 
 class Views(BaseModelWithLogging):
