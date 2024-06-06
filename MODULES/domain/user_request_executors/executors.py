@@ -27,9 +27,6 @@ from MODULES.database.models.users import Authors, Stats
 from MODULES.database.models.stories import Stories, Views
 from peewee import DoesNotExist
 
-HISTORY: list[Stories] = []
-HISTORY_ID: int = -1
-
 
 def return_none_if_error(func):
     def inner(*args, **kwargs):
@@ -95,10 +92,6 @@ class BaseExec:
 
 
 class BotPages(BaseExec, Call):
-    def __init__(self, message: Message, user: User | None = None):
-        super().__init__(message, user=user)
-        self.register_inline_keyboard: bool = False
-
     def check_boosts(self):
         boost = Boost(self.db_user)
         if boost.boost_changed == 0:
@@ -283,7 +276,7 @@ class BotPages(BaseExec, Call):
 
     @property
     @return_none_if_error
-    def __get_new_story(self) -> Stories | None:
+    def next_story(self) -> Stories | None:
         views = list(map(lambda x: x.story.id, Views.select().where(Views.user == self.db_user)[:]))
         story: Stories = random.choice(Stories.select().where(~Stories.id.in_(views)))
 
@@ -293,47 +286,16 @@ class BotPages(BaseExec, Call):
 
         return story
 
-    @property
-    @return_none_if_error
-    def __add_new_story_to_history(self):
-        story = self.__get_new_story
-        if story is None:
-            self.send(PageLoader(23)().to_dict)
-            return None
-
-        global HISTORY, HISTORY_ID
-        HISTORY.append(story)
-        HISTORY_ID = HISTORY.index(HISTORY[-1])
-
-        return HISTORY[HISTORY_ID]
-
-    @property
-    @return_none_if_error
-    def previous_story(self):
-        global HISTORY_ID
-        HISTORY_ID -= 1
-        return HISTORY[HISTORY_ID]
-
-    @property
-    @return_none_if_error
-    def next_story(self):
-        global HISTORY_ID
-        try:
-            HISTORY_ID += 1
-            return HISTORY[HISTORY_ID]
-        except IndexError:
-            return self.__add_new_story_to_history
-
     def start_reading(self):
-        self.show_story(self.__add_new_story_to_history)
+        self.show_story(self.next_story)
 
     def show_story(self, story: Stories | None = None):
         if story is None:
+            self.send(PageLoader(23)().to_dict)
             return  # берсерк
 
         markup = ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
         markup.row(
-            KeyboardButton("<-НАЗАД-<<"),
             KeyboardButton("ГЛАВНАЯ"),
             KeyboardButton(">>-ДАЛЬШЕ->"),
         )
@@ -348,7 +310,7 @@ class BotPages(BaseExec, Call):
         Stats.save(ath.stat)
         self.send(PageLoader(22)(ath.author_name, amount).to_dict)
         time.sleep(1)
-        self.show_story()
+        self.show_story(self.next_story)
 
     def at_story(self, id_):
         self.delete_message(self.message.id)

@@ -37,12 +37,6 @@ def start_mailing(message: Message):
     MailingSender()()
 
 
-@GUARD.message_handler(func=lambda message: message.text == '<-НАЗАД-<<')
-def main(message: Message):
-    executor = BotPages(message)
-    executor.show_story(story=executor.previous_story)
-
-
 @GUARD.message_handler(func=lambda message: message.text == 'ГЛАВНАЯ')
 def main(message: Message):
     executor = BotPages(message)
